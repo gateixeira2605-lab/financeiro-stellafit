@@ -11,6 +11,7 @@ RUN composer install \
 FROM php:8.2-apache
 
 # Extensões necessárias para MySQL, uploads e geração de PDFs.
+RUN apt-get update && apt-get install -y liboniguruma-dev libxml2-dev && rm -rf /var/lib/apt/lists/*
 RUN docker-php-ext-install mysqli pdo pdo_mysql mbstring dom
 
 # Permite que o .htaccess e as regras de reescrita sejam utilizados.
