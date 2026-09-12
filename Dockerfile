@@ -27,5 +27,5 @@ RUN mkdir -p /var/www/html/uploads /var/www/html/pdf \
     && find /var/www/html -type d -exec chmod 755 {} \; \
     && find /var/www/html -type f -exec chmod 644 {} \; \
     && chmod -R 775 /var/www/html/uploads /var/www/html/pdf
-
+RUN echo "PassEnv DB_HOST DB_NAME DB_USER DB_PASS" > /etc/apache2/conf-enabled/passenv.conf
 EXPOSE 80
