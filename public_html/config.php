@@ -9,11 +9,11 @@ return [
     'timezone' => 'America/Sao_Paulo',
     'base_url' => '', // Ex.: /financeiro (sem barra no final). Deixe vazio na raiz.
     'db' => [
-        'host' => 'localhost',
+        'host' => 'mysql-database-dhhsa5ntiphvhzqav2bkkant',
         'port' => '3306',
-        'name' => 'gestao_financeira',
-        'user' => 'root',
-        'pass' => '',
+        'name' => 'financeiro',
+        'user' => 'mysql',
+        'pass' => 'kVltQX7XzY987YwsxJt7Wf0TU7be9aBcDHU5uVV6xhQeJp5bbtuA1kpNx7UXYzsf',
         'charset' => 'utf8mb4',
     ],
     'upload' => [
