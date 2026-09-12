@@ -9,7 +9,7 @@ return [
     'timezone' => 'America/Sao_Paulo',
     'base_url' => '', // Ex.: /financeiro (sem barra no final). Deixe vazio na raiz.
     'db' => [
-        'host' => 'mysql-database-dhhsa5ntiphvhzqav2bkkant',
+        'host' => 'dhhsa5ntiphvhzqav2bkkant',
         'port' => '3306',
         'name' => 'financeiro',
         'user' => 'mysql',
