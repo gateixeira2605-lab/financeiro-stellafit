@@ -8,6 +8,6 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [L,QSA]
 </IfModule>
 
-<FilesMatch "^(config\.php|db\.php|helpers\.php|schema\.sql|composer\.(json|lock))$">
+<FilesMatch "^(config\.php|db\.php|helpers\.php|.*\.sql|composer\.(json|lock))$">
 Require all denied
 </FilesMatch>

@@ -11,6 +11,10 @@ Sistema em PHP puro + MySQL para contas a pagar, contas a receber, conciliação
 5. Garanta permissão de escrita na pasta `uploads/` (normalmente `755`; use `775` se necessário no servidor).
 6. Acesse o domínio e entre com `admin` / `admin123`. No primeiro login, a senha inicial é automaticamente convertida para `password_hash` do PHP.
 
+### Atualização de uma instalação existente
+
+Faça um backup e, antes de publicar esta versão sobre um sistema que já possui banco de dados, importe uma única vez o arquivo `public_html/migrations/20260912_payable_installments.sql`. Instalações novas que usam o `schema.sql` já incluem os campos de parcelamento.
+
 Se instalar em uma subpasta, preencha `base_url` no `config.php`, por exemplo `/financeiro`.
 
 ## Requisitos

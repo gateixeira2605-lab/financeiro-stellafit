@@ -1,3 +1,69 @@
 <div class="mb-4 flex justify-end"><a class="btn btn-primary" href="<?=url('payables/form')?>"><i data-lucide="plus"></i>Nova conta</a></div>
-<form class="card mb-5 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-7"><input type="hidden" name="route" value="payables"><select class="field" name="status"><option value="">Status</option><?php foreach(['pendente'=>'Pendente','vencido'=>'Vencido','pago'=>'Pago'] as $v=>$l):?><option value="<?=$v?>" <?=($_GET['status']??'')===$v?'selected':''?>><?=$l?></option><?php endforeach;?></select><select class="field" name="category"><option value="">Categoria</option><?php foreach($categories as $o):?><option value="<?=$o['id']?>" <?=($_GET['category']??'')==$o['id']?'selected':''?>><?=e($o['name'])?></option><?php endforeach;?></select><select class="field" name="contact"><option value="">Fornecedor</option><?php foreach($contacts as $o):?><option value="<?=$o['id']?>" <?=($_GET['contact']??'')==$o['id']?'selected':''?>><?=e($o['name'])?></option><?php endforeach;?></select><select class="field" name="payment_method"><option value="">Forma</option><?php foreach(['pix'=>'Pix','boleto'=>'Boleto','cartao'=>'Cartão','dinheiro'=>'Dinheiro','debito_automatico'=>'Débito automático','transferencia'=>'Transferência'] as $v=>$l):?><option value="<?=$v?>" <?=($_GET['payment_method']??'')===$v?'selected':''?>><?=$l?></option><?php endforeach;?></select><input class="field" type="date" name="start" value="<?=e($_GET['start']??'')?>"><input class="field" type="date" name="end" value="<?=e($_GET['end']??'')?>"><button class="btn btn-light"><i data-lucide="list-filter"></i>Filtrar</button></form>
-<div class="card table-wrap"><table class="data-table"><thead><tr><th>Situação</th><th>Descrição</th><th>Fornecedor</th><th>Categoria</th><th>Vencimento</th><th>Valor</th><th>Forma</th><th>Ações</th></tr></thead><tbody><?php foreach($items as $i):$badge=status_badge($i['status'],$i['due_date']);?><tr><td><span class="rounded-full px-2 py-1 text-xs font-semibold <?=$badge[1]?>"><?=$badge[0]?></span><?php if($i['is_scheduled']):?><span class="ml-1 text-xs text-blue-600">Agendada</span><?php endif;?></td><td class="font-medium"><?=e($i['description'])?><?php if($i['attachment_id']):?><a class="ml-2 text-teal-600" title="Baixar anexo" href="<?=url('attachment')?>&id=<?=$i['attachment_id']?>"><i class="inline" data-lucide="paperclip"></i></a><?php endif;?></td><td><?=e($i['contact_name']?:'—')?></td><td><?=e($i['category_name']?:'—')?></td><td><?=br_date($i['due_date'])?></td><td class="font-semibold"><?=money($i['amount'])?></td><td><?=e(ucwords(str_replace('_',' ',$i['payment_method'])))?></td><td><div class="flex gap-1"><?php if($i['status']!=='pago'):?><form method="post" action="<?=url('payables/pay')?>" data-confirm="Confirmar a baixa desta conta?"><?=csrf_field()?><input type="hidden" name="id" value="<?=$i['id']?>"><input type="hidden" name="payment_date" value="<?=date('Y-m-d')?>"><button class="btn btn-primary !px-2 !py-1.5 text-xs">Dar baixa</button></form><?php if(!$i['is_scheduled'] && $i['due_date']>=date('Y-m-d')):?><form method="post" action="<?=url('payables/schedule')?>"><?=csrf_field()?><input type="hidden" name="id" value="<?=$i['id']?>"><button class="btn btn-light !px-2 !py-1.5 text-xs">Agendar</button></form><?php endif;?><?php endif;?><a class="btn btn-light !p-1.5" href="<?=url('payables/form')?>&id=<?=$i['id']?>"><i data-lucide="pencil"></i></a><form method="post" action="<?=url('payables/delete')?>" data-confirm="Excluir esta conta?"><?=csrf_field()?><input type="hidden" name="id" value="<?=$i['id']?>"><button class="btn btn-light !p-1.5 text-red-600"><i data-lucide="trash-2"></i></button></form></div></td></tr><?php endforeach;?><?php if(!$items):?><tr><td colspan="8" class="text-center text-slate-500">Nenhuma conta encontrada.</td></tr><?php endif;?></tbody></table></div>
+
+<form class="card mb-5 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-7">
+  <input type="hidden" name="route" value="payables">
+  <select class="field" name="status"><option value="">Status</option><?php foreach (['pendente' => 'Pendente', 'vencido' => 'Vencido', 'pago' => 'Pago'] as $v => $l): ?><option value="<?=$v?>" <?=($_GET['status'] ?? '') === $v ? 'selected' : ''?>><?=$l?></option><?php endforeach; ?></select>
+  <select class="field" name="category"><option value="">Categoria</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>" <?=($_GET['category'] ?? '') == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?></select>
+  <select class="field" name="contact"><option value="">Fornecedor</option><?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>" <?=($_GET['contact'] ?? '') == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?></select>
+  <select class="field" name="payment_method"><option value="">Forma</option><?php foreach (['pix' => 'Pix', 'boleto' => 'Boleto', 'cartao' => 'Cartão', 'dinheiro' => 'Dinheiro', 'debito_automatico' => 'Débito automático', 'transferencia' => 'Transferência'] as $v => $l): ?><option value="<?=$v?>" <?=($_GET['payment_method'] ?? '') === $v ? 'selected' : ''?>><?=$l?></option><?php endforeach; ?></select>
+  <input class="field" type="date" name="start" value="<?=e($_GET['start'] ?? '')?>">
+  <input class="field" type="date" name="end" value="<?=e($_GET['end'] ?? '')?>">
+  <button class="btn btn-light"><i data-lucide="list-filter"></i>Filtrar</button>
+</form>
+
+<div class="card table-wrap">
+  <table class="data-table">
+    <thead><tr><th>Situação</th><th>Descrição</th><th>Parcela</th><th>Fornecedor</th><th>Categoria</th><th>Vencimento</th><th>Valor</th><th>Forma</th><th>Ações</th></tr></thead>
+    <tbody>
+      <?php foreach ($items as $i): $badge = status_badge($i['status'], $i['due_date']); ?>
+        <tr>
+          <td>
+            <span class="rounded-full px-2 py-1 text-xs font-semibold <?=$badge[1]?>"><?=$badge[0]?></span>
+            <?php if ($i['is_scheduled']): ?><span class="ml-1 text-xs text-blue-600">Agendada</span><?php endif; ?>
+          </td>
+          <td class="font-medium">
+            <?=e($i['description'])?>
+            <?php if ($i['attachment_id']): ?><a class="ml-2 text-teal-600" title="Baixar anexo" href="<?=url('attachment')?>&id=<?=$i['attachment_id']?>"><i class="inline" data-lucide="paperclip"></i></a><?php endif; ?>
+          </td>
+          <td>
+            <?php if (!empty($i['installment_count'])): ?>
+              <span class="font-medium"><?=e($i['installment_number'])?>/<?=e($i['installment_count'])?></span>
+              <?php if (!empty($i['is_recurring'])): ?><span class="ml-1 rounded-full bg-teal-50 px-2 py-1 text-[11px] text-teal-700 dark:bg-teal-950 dark:text-teal-300">Recorrente</span><?php endif; ?>
+            <?php else: ?>—<?php endif; ?>
+          </td>
+          <td><?=e($i['contact_name'] ?: '—')?></td>
+          <td><?=e($i['category_name'] ?: '—')?></td>
+          <td><?=br_date($i['due_date'])?></td>
+          <td class="font-semibold"><?=money($i['amount'])?></td>
+          <td><?=e(ucwords(str_replace('_', ' ', $i['payment_method'])))?></td>
+          <td>
+            <div class="flex gap-1">
+              <?php if ($i['status'] !== 'pago'): ?>
+                <form method="post" action="<?=url('payables/pay')?>" data-confirm="Confirmar a baixa desta conta?">
+                  <?=csrf_field()?>
+                  <input type="hidden" name="id" value="<?=$i['id']?>">
+                  <input type="hidden" name="payment_date" value="<?=date('Y-m-d')?>">
+                  <button class="btn btn-primary !px-2 !py-1.5 text-xs">Dar baixa</button>
+                </form>
+                <?php if (!$i['is_scheduled'] && $i['due_date'] >= date('Y-m-d')): ?>
+                  <form method="post" action="<?=url('payables/schedule')?>">
+                    <?=csrf_field()?>
+                    <input type="hidden" name="id" value="<?=$i['id']?>">
+                    <button class="btn btn-light !px-2 !py-1.5 text-xs">Agendar</button>
+                  </form>
+                <?php endif; ?>
+              <?php endif; ?>
+              <a class="btn btn-light !p-1.5" href="<?=url('payables/form')?>&id=<?=$i['id']?>"><i data-lucide="pencil"></i></a>
+              <form method="post" action="<?=url('payables/delete')?>" data-confirm="Excluir esta conta?">
+                <?=csrf_field()?>
+                <input type="hidden" name="id" value="<?=$i['id']?>">
+                <button class="btn btn-light !p-1.5 text-red-600"><i data-lucide="trash-2"></i></button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      <?php if (!$items): ?><tr><td colspan="9" class="text-center text-slate-500">Nenhuma conta encontrada.</td></tr><?php endif; ?>
+    </tbody>
+  </table>
+</div>

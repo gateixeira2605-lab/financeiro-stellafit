@@ -44,6 +44,10 @@ CREATE TABLE payables (
   recurrence ENUM('nenhuma','mensal','quinzenal','semanal') NOT NULL DEFAULT 'nenhuma',
   is_scheduled TINYINT(1) NOT NULL DEFAULT 0,
   recurrence_parent_id INT UNSIGNED NULL,
+  series_id CHAR(32) NULL,
+  installment_number SMALLINT UNSIGNED NULL,
+  installment_count SMALLINT UNSIGNED NULL,
+  is_recurring TINYINT(1) NOT NULL DEFAULT 0,
   notes TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -51,6 +55,7 @@ CREATE TABLE payables (
   CONSTRAINT fk_payable_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT,
   CONSTRAINT fk_payable_parent FOREIGN KEY (recurrence_parent_id) REFERENCES payables(id) ON DELETE SET NULL,
   UNIQUE KEY uq_payable_recurrence_parent (recurrence_parent_id),
+  INDEX idx_payable_series (series_id,installment_number),
   INDEX idx_payable_due (due_date), INDEX idx_payable_status (status), INDEX idx_payable_due_status (due_date,status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

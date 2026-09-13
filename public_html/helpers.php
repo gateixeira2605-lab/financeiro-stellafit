@@ -43,6 +43,41 @@ function decimal_value(mixed $value): float
     return round((float) $value, 2);
 }
 
+function decimal_cents(mixed $value): int
+{
+    $value = trim((string) $value);
+    if (str_contains($value, ',')) $value = str_replace(['.', ','], ['', '.'], $value);
+    if (!preg_match('/^\d+(?:\.\d{1,2})?$/', $value)) {
+        throw new InvalidArgumentException('Valor monetário inválido. Use no máximo duas casas decimais.');
+    }
+
+    [$whole, $fraction] = array_pad(explode('.', $value, 2), 2, '');
+    $whole = ltrim($whole, '0') ?: '0';
+    if (strlen($whole) > 8) throw new InvalidArgumentException('O valor informado excede o limite permitido.');
+    $cents = ((int) $whole * 100) + (int) str_pad($fraction, 2, '0');
+    return $cents;
+}
+
+function cents_decimal(int $cents): string
+{
+    return intdiv($cents, 100) . '.' . str_pad((string) ($cents % 100), 2, '0', STR_PAD_LEFT);
+}
+
+function installment_amounts(int $informedCents, int $count, bool $isRecurring): array
+{
+    if ($informedCents <= 0 || $count < 1) throw new InvalidArgumentException('Valor e quantidade de parcelas devem ser maiores que zero.');
+    if ($isRecurring) return array_fill(0, $count, $informedCents);
+    if ($informedCents < $count) throw new InvalidArgumentException('O valor total deve ser de pelo menos R$ 0,01 por parcela.');
+
+    $base = intdiv($informedCents, $count);
+    $remainder = $informedCents % $count;
+    $amounts = [];
+    for ($index = 0; $index < $count; $index++) {
+        $amounts[] = $base + ($index < $remainder ? 1 : 0);
+    }
+    return $amounts;
+}
+
 function select_options(string $sql, array $params = []): array
 {
     $stmt = db()->prepare($sql); $stmt->execute($params); return $stmt->fetchAll();
@@ -125,15 +160,34 @@ function sync_overdue_statuses(): void
     db()->exec("UPDATE receivables SET status='vencido' WHERE due_date < CURDATE() AND status='pendente'");
 }
 
+function is_valid_iso_date(string $date): bool
+{
+    $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+    return $parsed !== false && $parsed->format('Y-m-d') === $date;
+}
+
+function installment_due_date(string $date, string $recurrence, int $offset): string
+{
+    if (!is_valid_iso_date($date) || $offset < 0) throw new InvalidArgumentException('Data de vencimento inválida.');
+    $current = new DateTimeImmutable($date);
+    if ($offset === 0) return $date;
+
+    if ($recurrence === 'mensal') {
+        $monthIndex = ((int) $current->format('Y') * 12) + (int) $current->format('n') - 1 + $offset;
+        $year = intdiv($monthIndex, 12);
+        $month = ($monthIndex % 12) + 1;
+        $firstDay = new DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month));
+        $day = min((int) $current->format('d'), (int) $firstDay->format('t'));
+        return $firstDay->setDate($year, $month, $day)->format('Y-m-d');
+    }
+    if (!in_array($recurrence, ['quinzenal', 'semanal'], true)) throw new InvalidArgumentException('Intervalo de parcelas inválido.');
+    $days = $recurrence === 'quinzenal' ? 15 : 7;
+    return $current->modify('+' . ($days * $offset) . ' days')->format('Y-m-d');
+}
+
 function next_due_date(string $date, string $recurrence): string
 {
-    $current = new DateTimeImmutable($date);
-    if ($recurrence === 'mensal') {
-        $firstNext = $current->modify('first day of next month');
-        $day = min((int) $current->format('d'), (int) $firstNext->format('t'));
-        return $firstNext->setDate((int) $firstNext->format('Y'), (int) $firstNext->format('m'), $day)->format('Y-m-d');
-    }
-    return $current->modify($recurrence === 'quinzenal' ? '+15 days' : '+7 days')->format('Y-m-d');
+    return installment_due_date($date, $recurrence, 1);
 }
 
 function validate_date_range(string $start, string $end): void

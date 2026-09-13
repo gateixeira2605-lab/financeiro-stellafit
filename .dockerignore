@@ -1,0 +1,7 @@
+.git
+.gitignore
+financontrol-hostinger.zip
+public_html/vendor
+public_html/uploads/*
+!public_html/uploads/.gitkeep
+!public_html/uploads/.htaccess
