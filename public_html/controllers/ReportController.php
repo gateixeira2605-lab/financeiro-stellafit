@@ -33,8 +33,8 @@ final class ReportController extends BaseController
         if($type==='projetado'){
             $stmt=$pdo->prepare("SELECT DATE_FORMAT(day,'%d/%m/%Y') data,entrada,saida,(entrada-saida) saldo FROM (
               SELECT day,SUM(entrada) entrada,SUM(saida) saida FROM (
-                SELECT due_date day,expected_amount-received_amount entrada,0 saida FROM receivables WHERE status IN ('pendente','vencido','parcial') AND due_date BETWEEN ? AND ?
-                UNION ALL SELECT due_date,0,(amount-paid_amount) FROM payables WHERE status IN ('pendente','vencido','parcial') AND due_date BETWEEN ? AND ?
+                SELECT due_date day,remaining_amount entrada,0 saida FROM receivables WHERE status IN ('pendente','vencido','parcial') AND due_date BETWEEN ? AND ?
+                UNION ALL SELECT due_date,0,remaining_amount FROM payables WHERE status IN ('pendente','vencido','parcial') AND due_date BETWEEN ? AND ?
               ) x GROUP BY day) y ORDER BY STR_TO_DATE(data,'%d/%m/%Y')");$stmt->execute([$start,$end,$start,$end]);$raw=$stmt->fetchAll();
             return ['Fluxo de Caixa Projetado',['data'=>'Data','entrada'=>'Entradas','saida'=>'Saídas','saldo'=>'Saldo'],array_map(fn($r)=>[$r['data'],money($r['entrada']),money($r['saida']),money($r['saldo'])],$raw)];
         }

@@ -17,6 +17,7 @@ Faça um backup e, antes de publicar esta versão sobre um sistema que já possu
 
 1. `public_html/migrations/20260912_payable_installments.sql`
 2. `public_html/migrations/20260913_quick_actions_and_partial_payments.sql`
+3. `public_html/migrations/20260914_schema_alignment.sql`
 
 Instalações novas que usam o `schema.sql` já incluem os campos necessários.
 

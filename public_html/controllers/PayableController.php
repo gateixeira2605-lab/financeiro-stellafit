@@ -27,7 +27,6 @@ final class PayableController extends BaseController
         }
 
         $stmt = db()->prepare("SELECT p.*,c.name category_name,ct.name contact_name,
-            (p.amount-p.paid_amount) remaining_amount,
             (SELECT MIN(a.id) FROM attachments a WHERE a.entity_type='payable' AND a.entity_id=p.id) attachment_id
             FROM payables p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN contacts ct ON ct.id=p.contact_id
             WHERE " . implode(' AND ', $where) . ' ORDER BY p.due_date,p.id');

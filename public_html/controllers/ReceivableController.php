@@ -25,7 +25,7 @@ final class ReceivableController extends BaseController
             $params[] = $_GET['end'];
         }
 
-        $stmt = db()->prepare("SELECT r.*,c.name category_name,ct.name contact_name,(r.expected_amount-r.received_amount) remaining_amount
+        $stmt = db()->prepare("SELECT r.*,c.name category_name,ct.name contact_name
             FROM receivables r LEFT JOIN categories c ON c.id=r.category_id LEFT JOIN contacts ct ON ct.id=r.contact_id
             WHERE " . implode(' AND ', $where) . ' ORDER BY r.due_date,r.id');
         $stmt->execute($params);
