@@ -14,7 +14,7 @@
 
 <div class="card table-wrap">
   <table class="data-table">
-    <thead><tr><th>Situação</th><th>Descrição</th><th>Vencimento</th><th>Total</th><th>Recebido</th><th>Restante</th><th>Ações</th></tr></thead>
+    <thead><tr><th>Situação</th><th>Categoria</th><th>Cliente</th><th>Vencimento</th><th>Total</th><th>Recebido</th><th>Ações</th></tr></thead>
     <tbody>
       <?php foreach ($items as $i):
         $badge = status_badge($i['status'], $i['due_date']);
@@ -22,11 +22,11 @@
       ?>
         <tr>
           <td><span class="rounded-full px-2 py-1 text-xs font-semibold <?=$badge[1]?>"><?=$badge[0]?></span></td>
-          <td class="font-medium"><?=e($i['description'])?><span class="block text-xs font-normal text-slate-500"><?=e($i['contact_name'] ?: 'Sem cliente')?> · <?=e($i['category_name'] ?: 'Sem categoria')?></span></td>
+          <td class="font-medium"><?=e($i['category_name'] ?: 'Sem categoria')?></td>
+          <td><?=e($i['contact_name'] ?: 'Sem cliente')?></td>
           <td><?=br_date($i['due_date'])?></td>
           <td class="font-semibold"><?=money($i['expected_amount'])?></td>
           <td class="text-teal-600"><?=money($i['received_amount'])?></td>
-          <td class="font-semibold <?=((float) $i['remaining_amount'] > 0) ? 'text-amber-600' : ''?>"><?=money($i['remaining_amount'])?></td>
           <td>
             <div class="relative inline-block">
               <button type="button" class="btn btn-light !p-2" data-menu-toggle aria-label="Abrir ações"><i data-lucide="chevron-down"></i></button>
