@@ -13,7 +13,9 @@ Sistema em PHP puro + MySQL para contas a pagar, contas a receber, conciliação
 
 ### Atualização de uma instalação existente
 
-Faça um backup e, antes de publicar esta versão sobre um sistema que já possui banco de dados, importe as migrações que ainda não tiver executado, nesta ordem:
+Ao abrir uma rota autenticada depois do deploy, o sistema verifica o banco e aplica automaticamente apenas as alterações pendentes. Antes dos ajustes, ele preserva cópias em `schema_backup_payables_20260914` e `schema_backup_receivables_20260914` e registra a versão em `schema_migrations`.
+
+As migrações manuais continuam disponíveis para manutenção, nesta ordem:
 
 1. `public_html/migrations/20260912_payable_installments.sql`
 2. `public_html/migrations/20260913_quick_actions_and_partial_payments.sql`

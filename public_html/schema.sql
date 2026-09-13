@@ -120,6 +120,13 @@ CREATE TABLE audit_logs (
   INDEX idx_audit_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE schema_migrations (
+  version VARCHAR(100) PRIMARY KEY,
+  applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO schema_migrations (version) VALUES ('20260914_schema_alignment_v1');
+
 INSERT INTO users (name,username,password) VALUES ('Administrador','admin','{SHA256}240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9');
 
 INSERT INTO categories (name,type,classification) VALUES

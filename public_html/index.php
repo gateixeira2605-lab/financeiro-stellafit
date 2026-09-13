@@ -24,6 +24,7 @@ $publicRoutes = ['login'];
 try {
     if (!in_array($route, $publicRoutes, true)) {
         require_auth();
+        ensure_database_schema();
         sync_overdue_statuses();
     }
 
