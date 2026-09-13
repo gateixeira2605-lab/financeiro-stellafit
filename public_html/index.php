@@ -50,6 +50,7 @@ try {
         'receivables/save' => [ReceivableController::class, 'save'],
         'receivables/receive' => [ReceivableController::class, 'receive'],
         'receivables/delete' => [ReceivableController::class, 'delete'],
+        'movement/details' => [MovementController::class, 'details'],
         'reconciliation' => [ReconciliationController::class, 'index'],
         'reports' => [ReportController::class, 'index'],
         'reports/export' => [ReportController::class, 'export'],

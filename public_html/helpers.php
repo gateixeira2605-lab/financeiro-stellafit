@@ -113,6 +113,30 @@ function flash(string $type, string $message): void
     $_SESSION['flash'][] = compact('type', 'message');
 }
 
+function audit_log(string $entityType, int $entityId, string $action, string $description, array $changes = []): void
+{
+    if (!in_array($entityType, ['payable', 'receivable'], true) || $entityId <= 0) return;
+    $payload = $changes ? json_encode($changes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+    $stmt = db()->prepare('INSERT INTO audit_logs (entity_type,entity_id,action,description,changes,created_by) VALUES (?,?,?,?,?,?)');
+    $stmt->execute([$entityType, $entityId, $action, $description, $payload, (int) ($_SESSION['user_id'] ?? 0) ?: null]);
+}
+
+function transaction_record(string $entityType, int $entityId, string $amount, string $date, string $notes = ''): void
+{
+    $stmt = db()->prepare('INSERT INTO financial_transactions (entity_type,entity_id,amount,transaction_date,notes,created_by) VALUES (?,?,?,?,?,?)');
+    $stmt->execute([$entityType, $entityId, $amount, $date, $notes !== '' ? $notes : null, (int) ($_SESSION['user_id'] ?? 0) ?: null]);
+}
+
+function changed_fields(array $fields): array
+{
+    $changes = [];
+    foreach ($fields as $label => $values) {
+        [$before, $after] = $values;
+        if ((string) $before !== (string) $after) $changes[$label] = ['from' => $before, 'to' => $after];
+    }
+    return $changes;
+}
+
 function redirect(string $route, array $query = []): never
 {
     $location = url($route);
@@ -147,6 +171,7 @@ function period_range(): array
 function status_badge(string $status, string $dueDate = ''): array
 {
     $today = date('Y-m-d');
+    if ($status === 'cancelado') return ['Cancelado', 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'];
     if (in_array($status, ['pago', 'recebido'], true)) return ['Concluído', 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200'];
     if ($status === 'parcial') return ['Parcial', 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'];
     if ($dueDate < $today) return ['Vencido', 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'];

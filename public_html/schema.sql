@@ -37,10 +37,11 @@ CREATE TABLE payables (
   contact_id INT UNSIGNED NULL,
   category_id INT UNSIGNED NULL,
   amount DECIMAL(10,2) NOT NULL,
+  paid_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   due_date DATE NOT NULL,
   payment_date DATE NULL,
   payment_method ENUM('pix','boleto','cartao','dinheiro','debito_automatico','transferencia') NOT NULL,
-  status ENUM('pendente','pago','vencido') NOT NULL DEFAULT 'pendente',
+  status ENUM('pendente','parcial','pago','vencido','cancelado') NOT NULL DEFAULT 'pendente',
   recurrence ENUM('nenhuma','mensal','quinzenal','semanal') NOT NULL DEFAULT 'nenhuma',
   is_scheduled TINYINT(1) NOT NULL DEFAULT 0,
   recurrence_parent_id INT UNSIGNED NULL,
@@ -69,7 +70,7 @@ CREATE TABLE receivables (
   due_date DATE NOT NULL,
   receipt_date DATE NULL,
   receipt_method ENUM('pix','cartao_credito','cartao_debito','boleto','dinheiro','transferencia') NOT NULL,
-  status ENUM('pendente','recebido','vencido','parcial') NOT NULL DEFAULT 'pendente',
+  status ENUM('pendente','recebido','vencido','parcial','cancelado') NOT NULL DEFAULT 'pendente',
   notes TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -88,6 +89,32 @@ CREATE TABLE attachments (
   file_size INT UNSIGNED NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_attachment_entity (entity_type,entity_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE financial_transactions (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  entity_type ENUM('payable','receivable') NOT NULL,
+  entity_id INT UNSIGNED NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  transaction_date DATE NOT NULL,
+  notes VARCHAR(255) NULL,
+  created_by INT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_transaction_entity (entity_type,entity_id),
+  INDEX idx_transaction_date (transaction_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE audit_logs (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  entity_type ENUM('payable','receivable') NOT NULL,
+  entity_id INT UNSIGNED NOT NULL,
+  action VARCHAR(40) NOT NULL,
+  description VARCHAR(255) NOT NULL,
+  changes TEXT NULL,
+  created_by INT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_audit_entity (entity_type,entity_id),
+  INDEX idx_audit_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO users (name,username,password) VALUES ('Administrador','admin','{SHA256}240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9');

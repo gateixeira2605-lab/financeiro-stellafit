@@ -34,15 +34,15 @@ final class ReportController extends BaseController
             $stmt=$pdo->prepare("SELECT DATE_FORMAT(day,'%d/%m/%Y') data,entrada,saida,(entrada-saida) saldo FROM (
               SELECT day,SUM(entrada) entrada,SUM(saida) saida FROM (
                 SELECT due_date day,expected_amount-received_amount entrada,0 saida FROM receivables WHERE status IN ('pendente','vencido','parcial') AND due_date BETWEEN ? AND ?
-                UNION ALL SELECT due_date,0,amount FROM payables WHERE status IN ('pendente','vencido') AND due_date BETWEEN ? AND ?
+                UNION ALL SELECT due_date,0,(amount-paid_amount) FROM payables WHERE status IN ('pendente','vencido','parcial') AND due_date BETWEEN ? AND ?
               ) x GROUP BY day) y ORDER BY STR_TO_DATE(data,'%d/%m/%Y')");$stmt->execute([$start,$end,$start,$end]);$raw=$stmt->fetchAll();
             return ['Fluxo de Caixa Projetado',['data'=>'Data','entrada'=>'Entradas','saida'=>'Saídas','saldo'=>'Saldo'],array_map(fn($r)=>[$r['data'],money($r['entrada']),money($r['saida']),money($r['saldo'])],$raw)];
         }
         if($type==='dre'){
             $stmt=$pdo->prepare("SELECT DATE_FORMAT(MIN(day),'%m/%Y') mes,category,classification,nature,SUM(amount) total
               FROM (
-                SELECT r.receipt_date day,r.received_amount amount,'receita' nature,COALESCE(c.name,'Sem categoria') category,COALESCE(c.classification,'receita_nao_operacional') classification FROM receivables r LEFT JOIN categories c ON c.id=r.category_id WHERE r.status IN ('recebido','parcial') AND r.receipt_date BETWEEN ? AND ?
-                UNION ALL SELECT p.payment_date,p.amount,'despesa',COALESCE(c.name,'Sem categoria'),COALESCE(c.classification,'despesa_administrativa') FROM payables p LEFT JOIN categories c ON c.id=p.category_id WHERE p.status='pago' AND p.payment_date BETWEEN ? AND ?
+                SELECT t.transaction_date day,t.amount,'receita' nature,COALESCE(c.name,'Sem categoria') category,COALESCE(c.classification,'receita_nao_operacional') classification FROM financial_transactions t JOIN receivables r ON t.entity_type='receivable' AND r.id=t.entity_id LEFT JOIN categories c ON c.id=r.category_id WHERE t.transaction_date BETWEEN ? AND ?
+                UNION ALL SELECT t.transaction_date,t.amount,'despesa',COALESCE(c.name,'Sem categoria'),COALESCE(c.classification,'despesa_administrativa') FROM financial_transactions t JOIN payables p ON t.entity_type='payable' AND p.id=t.entity_id LEFT JOIN categories c ON c.id=p.category_id WHERE t.transaction_date BETWEEN ? AND ?
               ) x GROUP BY YEAR(day),MONTH(day),category,classification,nature ORDER BY MIN(day),nature DESC,category");$stmt->execute([$start,$end,$start,$end]);$raw=$stmt->fetchAll();
             $rows=[];$month='';$revenue=$operatingExpense=$investment=0;
             $appendTotal=function()use(&$rows,&$month,&$revenue,&$operatingExpense,&$investment){if($month!==''){$rows[]=[$month,'RESULTADO OPERACIONAL','Receitas menos despesas operacionais',money($revenue),money($operatingExpense),money($revenue-$operatingExpense)];$rows[]=[$month,'RESULTADO LÍQUIDO','Operacional menos investimentos',money($revenue),money($operatingExpense+$investment),money($revenue-$operatingExpense-$investment)];}};
@@ -53,8 +53,8 @@ final class ReportController extends BaseController
         if($type==='comparativo'){
             $first=(new DateTimeImmutable('first day of this month'))->modify('-5 months')->format('Y-m-d');$last=date('Y-m-t');
             $stmt=$pdo->prepare("SELECT DATE_FORMAT(MIN(day),'%m/%Y') mes,SUM(entrada) receitas,SUM(saida) despesas FROM (
-              SELECT receipt_date day,received_amount entrada,0 saida FROM receivables WHERE status IN ('recebido','parcial') AND receipt_date BETWEEN ? AND ?
-              UNION ALL SELECT payment_date,0,amount FROM payables WHERE status='pago' AND payment_date BETWEEN ? AND ?
+              SELECT transaction_date day,amount entrada,0 saida FROM financial_transactions WHERE entity_type='receivable' AND transaction_date BETWEEN ? AND ?
+              UNION ALL SELECT transaction_date,0,amount FROM financial_transactions WHERE entity_type='payable' AND transaction_date BETWEEN ? AND ?
             ) x GROUP BY YEAR(day),MONTH(day) ORDER BY MIN(day)");$stmt->execute([$first,$last,$first,$last]);$raw=$stmt->fetchAll();
             $byMonth=array_column($raw,null,'mes');$rows=[];
             for($i=5;$i>=0;$i--){$month=(new DateTimeImmutable('first day of this month'))->modify("-$i months")->format('m/Y');$r=$byMonth[$month]??['receitas'=>0,'despesas'=>0];$rows[]=[$month,money($r['receitas']),money($r['despesas']),money((float)$r['receitas']-(float)$r['despesas'])];}
@@ -62,8 +62,8 @@ final class ReportController extends BaseController
         }
         $stmt=$pdo->prepare("SELECT DATE_FORMAT(day,'%d/%m/%Y') data,entrada,saida,(entrada-saida) saldo FROM (
           SELECT day,SUM(entrada) entrada,SUM(saida) saida FROM (
-            SELECT receipt_date day,received_amount entrada,0 saida FROM receivables WHERE status IN ('recebido','parcial') AND receipt_date BETWEEN ? AND ?
-            UNION ALL SELECT payment_date,0,amount FROM payables WHERE status='pago' AND payment_date BETWEEN ? AND ?
+            SELECT transaction_date day,amount entrada,0 saida FROM financial_transactions WHERE entity_type='receivable' AND transaction_date BETWEEN ? AND ?
+            UNION ALL SELECT transaction_date,0,amount FROM financial_transactions WHERE entity_type='payable' AND transaction_date BETWEEN ? AND ?
           ) x GROUP BY day) y ORDER BY STR_TO_DATE(data,'%d/%m/%Y')");$stmt->execute([$start,$end,$start,$end]);$raw=$stmt->fetchAll();$acc=0;$rows=[];
         foreach($raw as $r){$acc+=(float)$r['saldo'];$rows[]=[$r['data'],money($r['entrada']),money($r['saida']),money($r['saldo']),money($acc)];}
         return ['Fluxo de Caixa Realizado',['data'=>'Data','entrada'=>'Entradas','saida'=>'Saídas','saldo'=>'Saldo do dia','acumulado'=>'Acumulado'],$rows];

@@ -16,6 +16,7 @@ final class PayableController extends BaseController
                 $params[] = $_GET[$input];
             }
         }
+        if (($_GET['status'] ?? '') === '') $where[] = "p.status<>'cancelado'";
         if (!empty($_GET['start'])) {
             $where[] = 'p.due_date>=?';
             $params[] = $_GET['start'];
@@ -25,11 +26,10 @@ final class PayableController extends BaseController
             $params[] = $_GET['end'];
         }
 
-        $stmt = db()->prepare("SELECT p.*, c.name category_name, ct.name contact_name,
+        $stmt = db()->prepare("SELECT p.*,c.name category_name,ct.name contact_name,
+            (p.amount-p.paid_amount) remaining_amount,
             (SELECT MIN(a.id) FROM attachments a WHERE a.entity_type='payable' AND a.entity_id=p.id) attachment_id
-            FROM payables p
-            LEFT JOIN categories c ON c.id=p.category_id
-            LEFT JOIN contacts ct ON ct.id=p.contact_id
+            FROM payables p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN contacts ct ON ct.id=p.contact_id
             WHERE " . implode(' AND ', $where) . ' ORDER BY p.due_date,p.id');
         $stmt->execute($params);
         $items = $stmt->fetchAll();
@@ -76,10 +76,29 @@ final class PayableController extends BaseController
         $pdo->beginTransaction();
         try {
             if ($id) {
-                $status = $due < date('Y-m-d') ? 'vencido' : 'pendente';
-                $stmt = $pdo->prepare("UPDATE payables SET description=?,contact_id=?,category_id=?,amount=?,due_date=?,payment_method=?,status=IF(status='pago',status,?),recurrence=?,notes=? WHERE id=?");
+                $currentStmt = $pdo->prepare('SELECT * FROM payables WHERE id=? FOR UPDATE');
+                $currentStmt->execute([$id]);
+                $current = $currentStmt->fetch();
+                if (!$current) throw new RuntimeException('Conta não encontrada.');
+                $paidCents = decimal_cents($current['paid_amount']);
+                if ($informedCents < $paidCents) throw new InvalidArgumentException('O valor da conta não pode ser menor que o total já pago.');
+
+                $status = $current['status'] === 'cancelado'
+                    ? 'cancelado'
+                    : ($paidCents === $informedCents ? 'pago' : ($paidCents > 0 ? 'parcial' : ($due < date('Y-m-d') ? 'vencido' : 'pendente')));
+                $stmt = $pdo->prepare('UPDATE payables SET description=?,contact_id=?,category_id=?,amount=?,due_date=?,payment_method=?,status=?,recurrence=?,notes=? WHERE id=?');
                 $stmt->execute([$description, $contactId, $categoryId, cents_decimal($informedCents), $due, $method, $status, $recurrence, $notes, $id]);
                 Attachment::store('payable', (int) $id, $_FILES['attachment'] ?? []);
+                audit_log('payable', (int) $id, 'updated', 'Dados da conta a pagar alterados.', changed_fields([
+                    'Descrição' => [$current['description'], $description],
+                    'Fornecedor' => [$current['contact_id'], $contactId],
+                    'Categoria' => [$current['category_id'], $categoryId],
+                    'Valor' => [$current['amount'], cents_decimal($informedCents)],
+                    'Vencimento' => [$current['due_date'], $due],
+                    'Forma' => [$current['payment_method'], $method],
+                    'Intervalo' => [$current['recurrence'], $recurrence],
+                    'Observações' => [$current['notes'], $notes],
+                ]));
                 $message = 'Conta a pagar atualizada.';
             } else {
                 $installmentCount = filter_var($_POST['installment_count'] ?? null, FILTER_VALIDATE_INT, [
@@ -103,13 +122,13 @@ final class PayableController extends BaseController
                         $description, $contactId, $categoryId, cents_decimal($amountCents), $installmentDue, $method,
                         $status, $recurrence, $notes, $seriesId, $index + 1, $installmentCount, (int) $isRecurring,
                     ]);
-                    if ($index === 0) $firstId = (int) $pdo->lastInsertId();
+                    $entityId = (int) $pdo->lastInsertId();
+                    if ($index === 0) $firstId = $entityId;
+                    audit_log('payable', $entityId, 'created', 'Conta a pagar cadastrada.');
                 }
 
                 Attachment::store('payable', $firstId, $_FILES['attachment'] ?? []);
-                $message = $installmentCount === 1
-                    ? 'Conta a pagar salva.'
-                    : $installmentCount . ' parcelas geradas com sucesso.';
+                $message = $installmentCount === 1 ? 'Conta a pagar salva.' : $installmentCount . ' parcelas geradas com sucesso.';
             }
 
             $pdo->commit();
@@ -125,7 +144,9 @@ final class PayableController extends BaseController
     {
         verify_csrf();
         $id = (int) ($_POST['id'] ?? 0);
+        $paymentCents = decimal_cents($_POST['payment_amount'] ?? '');
         $date = (string) ($_POST['payment_date'] ?? date('Y-m-d'));
+        $notes = trim((string) ($_POST['payment_notes'] ?? ''));
         if (!is_valid_iso_date($date)) throw new InvalidArgumentException('Data de pagamento inválida.');
 
         $pdo = db();
@@ -134,24 +155,37 @@ final class PayableController extends BaseController
             $stmt = $pdo->prepare('SELECT * FROM payables WHERE id=? FOR UPDATE');
             $stmt->execute([$id]);
             $item = $stmt->fetch();
-            if (!$item) throw new RuntimeException('Conta não encontrada.');
+            if (!$item || $item['status'] === 'cancelado') throw new RuntimeException('Conta não encontrada ou cancelada.');
 
-            $pdo->prepare("UPDATE payables SET status='pago',payment_date=? WHERE id=?")->execute([$date, $id]);
+            $totalCents = decimal_cents($item['amount']);
+            $paidCents = decimal_cents($item['paid_amount']);
+            $remainingCents = $totalCents - $paidCents;
+            if ($paymentCents <= 0 || $paymentCents > $remainingCents) throw new InvalidArgumentException('O pagamento deve ser maior que zero e não pode ultrapassar o saldo restante.');
 
-            // Compatibilidade: lançamentos criados antes do parcelamento continuam gerando a próxima ocorrência na baixa.
-            if ($item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
+            $newPaidCents = $paidCents + $paymentCents;
+            $newRemainingCents = $totalCents - $newPaidCents;
+            $status = $newRemainingCents === 0 ? 'pago' : 'parcial';
+            $pdo->prepare('UPDATE payables SET paid_amount=?,status=?,payment_date=? WHERE id=?')
+                ->execute([cents_decimal($newPaidCents), $status, $date, $id]);
+            transaction_record('payable', $id, cents_decimal($paymentCents), $date, $notes);
+            audit_log('payable', $id, 'payment', 'Pagamento de ' . money(cents_decimal($paymentCents)) . ' registrado. Saldo restante: ' . money(cents_decimal($newRemainingCents)) . '.');
+
+            // Compatibilidade: recorrências antigas só geram a próxima conta após a quitação integral.
+            if ($status === 'pago' && $item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
                 $next = next_due_date($item['due_date'], $item['recurrence']);
                 $sql = "INSERT IGNORE INTO payables
                     (description,contact_id,category_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
                     VALUES (?,?,?,?,?,?,'pendente',?,?,?)";
-                $pdo->prepare($sql)->execute([
+                $legacyStmt = $pdo->prepare($sql);
+                $legacyStmt->execute([
                     $item['description'], $item['contact_id'], $item['category_id'], $item['amount'], $next,
                     $item['payment_method'], $item['recurrence'], $item['notes'], $id,
                 ]);
+                if ($legacyStmt->rowCount()) audit_log('payable', (int) $pdo->lastInsertId(), 'created', 'Próxima ocorrência recorrente gerada após a quitação.');
             }
 
             $pdo->commit();
-            flash('success', 'Pagamento confirmado.');
+            flash('success', $status === 'pago' ? 'Pagamento concluído.' : 'Pagamento parcial registrado.');
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $e;
@@ -162,8 +196,18 @@ final class PayableController extends BaseController
     public function schedule(): void
     {
         verify_csrf();
-        $stmt = db()->prepare("UPDATE payables SET is_scheduled=1 WHERE id=? AND status<>'pago'");
-        $stmt->execute([(int) ($_POST['id'] ?? 0)]);
+        $id = (int) ($_POST['id'] ?? 0);
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("UPDATE payables SET is_scheduled=1 WHERE id=? AND status NOT IN ('pago','cancelado')");
+            $stmt->execute([$id]);
+            if ($stmt->rowCount()) audit_log('payable', $id, 'scheduled', 'Pagamento marcado como agendado.');
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
         flash('success', 'Pagamento marcado como agendado.');
         redirect('payables');
     }
@@ -172,10 +216,18 @@ final class PayableController extends BaseController
     {
         verify_csrf();
         $id = (int) ($_POST['id'] ?? 0);
-        Attachment::deleteFor('payable', $id);
-        $stmt = db()->prepare('DELETE FROM payables WHERE id=?');
-        $stmt->execute([$id]);
-        flash('success', 'Conta excluída.');
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("UPDATE payables SET status='cancelado',is_scheduled=0 WHERE id=?");
+            $stmt->execute([$id]);
+            if ($stmt->rowCount()) audit_log('payable', $id, 'cancelled', 'Conta a pagar cancelada.');
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        flash('success', 'Conta a pagar cancelada.');
         redirect('payables');
     }
 }
