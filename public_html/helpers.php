@@ -165,6 +165,27 @@ function is_post(): bool
     return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 }
 
+function selected_ids_from_post(int $limit = 200): array
+{
+    $values = $_POST['ids'] ?? [];
+    if (!is_array($values)) throw new InvalidArgumentException('Seleção inválida.');
+
+    $ids = [];
+    foreach ($values as $value) {
+        $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($id !== false) $ids[(int) $id] = (int) $id;
+    }
+    $ids = array_values($ids);
+    if (!$ids) throw new InvalidArgumentException('Selecione pelo menos um lançamento.');
+    if (count($ids) > $limit) throw new InvalidArgumentException('Selecione no máximo ' . $limit . ' lançamentos por operação.');
+    return $ids;
+}
+
+function sql_placeholders(array $values): string
+{
+    return implode(',', array_fill(0, count($values), '?'));
+}
+
 function period_range(): array
 {
     $period = $_GET['period'] ?? 'current';

@@ -148,6 +148,135 @@ final class ReceivableController extends BaseController
         redirect('receivables');
     }
 
+    public function bulkReceive(): void
+    {
+        verify_csrf();
+        $ids = selected_ids_from_post();
+        $date = (string) ($_POST['receipt_date'] ?? date('Y-m-d'));
+        $notes = mb_substr(trim((string) ($_POST['receipt_notes'] ?? '')), 0, 255);
+        if (!is_valid_iso_date($date)) throw new InvalidArgumentException('Data de recebimento inválida.');
+
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->prepare('SELECT * FROM receivables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
+            $statement->execute($ids);
+            $update = $pdo->prepare("UPDATE receivables SET received_amount=expected_amount,status='recebido',receipt_date=? WHERE id=?");
+            $processed = 0;
+            foreach ($statement->fetchAll() as $item) {
+                if (in_array($item['status'], ['recebido', 'cancelado'], true)) continue;
+                $remainingCents = decimal_cents($item['expected_amount']) - decimal_cents($item['received_amount']);
+                if ($remainingCents <= 0) continue;
+                $id = (int) $item['id'];
+                $update->execute([$date, $id]);
+                transaction_record('receivable', $id, cents_decimal($remainingCents), $date, $notes);
+                audit_log('receivable', $id, 'receipt', 'Quitação em massa de ' . money(cents_decimal($remainingCents)) . ' registrada.');
+                $processed++;
+            }
+            $pdo->commit();
+            flash($processed ? 'success' : 'error', $processed ? $processed . ' receita(s) recebida(s).' : 'Nenhuma receita selecionada estava disponível para baixa.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        redirect('receivables');
+    }
+
+    public function bulkEdit(): void
+    {
+        verify_csrf();
+        $ids = selected_ids_from_post();
+        $requested = [
+            'category_id' => (string) ($_POST['category_id'] ?? '__keep__'),
+            'contact_id' => (string) ($_POST['contact_id'] ?? '__keep__'),
+            'due_date' => trim((string) ($_POST['due_date'] ?? '')),
+            'receipt_method' => (string) ($_POST['receipt_method'] ?? '__keep__'),
+        ];
+        if ($requested['due_date'] !== '' && !is_valid_iso_date($requested['due_date'])) throw new InvalidArgumentException('Data de vencimento inválida.');
+        if ($requested['receipt_method'] !== '__keep__' && !in_array($requested['receipt_method'], $this->methods, true)) throw new InvalidArgumentException('Forma de recebimento inválida.');
+        foreach (['category_id', 'contact_id'] as $field) {
+            if ($requested[$field] !== '__keep__' && $requested[$field] !== '0' && filter_var($requested[$field], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+                throw new InvalidArgumentException('Opção de edição inválida.');
+            }
+        }
+        if ($requested['category_id'] === '__keep__' && $requested['contact_id'] === '__keep__' && $requested['due_date'] === '' && $requested['receipt_method'] === '__keep__') {
+            throw new InvalidArgumentException('Escolha pelo menos um campo para alterar.');
+        }
+
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->prepare('SELECT * FROM receivables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
+            $statement->execute($ids);
+            $processed = 0;
+            foreach ($statement->fetchAll() as $item) {
+                if ($item['status'] === 'cancelado') continue;
+                $sets = [];
+                $params = [];
+                $changes = [];
+                foreach (['category_id' => 'Categoria', 'contact_id' => 'Cliente'] as $field => $label) {
+                    if ($requested[$field] === '__keep__') continue;
+                    $value = $requested[$field] === '0' ? null : (int) $requested[$field];
+                    $sets[] = $field . '=?';
+                    $params[] = $value;
+                    $changes[$label] = [$item[$field], $value];
+                }
+                if ($requested['due_date'] !== '') {
+                    $sets[] = 'due_date=?';
+                    $params[] = $requested['due_date'];
+                    $changes['Vencimento'] = [$item['due_date'], $requested['due_date']];
+                    if (in_array($item['status'], ['pendente', 'vencido'], true)) {
+                        $sets[] = 'status=?';
+                        $params[] = $requested['due_date'] < date('Y-m-d') ? 'vencido' : 'pendente';
+                    }
+                }
+                if ($requested['receipt_method'] !== '__keep__') {
+                    $sets[] = 'receipt_method=?';
+                    $params[] = $requested['receipt_method'];
+                    $changes['Forma'] = [$item['receipt_method'], $requested['receipt_method']];
+                }
+                $changes = changed_fields($changes);
+                if (!$changes) continue;
+                $params[] = (int) $item['id'];
+                $pdo->prepare('UPDATE receivables SET ' . implode(',', $sets) . ' WHERE id=?')->execute($params);
+                audit_log('receivable', (int) $item['id'], 'bulk_updated', 'Conta alterada em edição em massa.', $changes);
+                $processed++;
+            }
+            $pdo->commit();
+            flash($processed ? 'success' : 'error', $processed ? $processed . ' receita(s) atualizada(s).' : 'Nenhuma receita precisou ser alterada.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        redirect('receivables');
+    }
+
+    public function bulkDelete(): void
+    {
+        verify_csrf();
+        $ids = selected_ids_from_post();
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->prepare('SELECT id,status FROM receivables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
+            $statement->execute($ids);
+            $update = $pdo->prepare("UPDATE receivables SET status='cancelado' WHERE id=?");
+            $processed = 0;
+            foreach ($statement->fetchAll() as $item) {
+                if ($item['status'] === 'cancelado') continue;
+                $update->execute([(int) $item['id']]);
+                audit_log('receivable', (int) $item['id'], 'cancelled', 'Conta a receber cancelada em massa.');
+                $processed++;
+            }
+            $pdo->commit();
+            flash($processed ? 'success' : 'error', $processed ? $processed . ' receita(s) cancelada(s).' : 'Nenhuma receita selecionada estava disponível para cancelamento.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        redirect('receivables');
+    }
+
     public function delete(): void
     {
         verify_csrf();

@@ -198,6 +198,151 @@ final class PayableController extends BaseController
         redirect('payables');
     }
 
+    public function bulkPay(): void
+    {
+        verify_csrf();
+        $ids = selected_ids_from_post();
+        $date = (string) ($_POST['payment_date'] ?? date('Y-m-d'));
+        $notes = mb_substr(trim((string) ($_POST['payment_notes'] ?? '')), 0, 255);
+        if (!is_valid_iso_date($date)) throw new InvalidArgumentException('Data de pagamento inválida.');
+
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->prepare('SELECT * FROM payables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
+            $statement->execute($ids);
+            $items = $statement->fetchAll();
+            $update = $pdo->prepare("UPDATE payables SET paid_amount=amount,status='pago',payment_date=?,is_scheduled=0 WHERE id=?");
+            $legacy = $pdo->prepare("INSERT IGNORE INTO payables
+                (description,contact_id,category_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
+                VALUES (?,?,?,?,?,?,'pendente',?,?,?)");
+            $processed = 0;
+
+            foreach ($items as $item) {
+                if (in_array($item['status'], ['pago', 'cancelado'], true)) continue;
+                $remainingCents = decimal_cents($item['amount']) - decimal_cents($item['paid_amount']);
+                if ($remainingCents <= 0) continue;
+
+                $id = (int) $item['id'];
+                $update->execute([$date, $id]);
+                transaction_record('payable', $id, cents_decimal($remainingCents), $date, $notes);
+                audit_log('payable', $id, 'payment', 'Quitação em massa de ' . money(cents_decimal($remainingCents)) . ' registrada.');
+
+                if ($item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
+                    $legacy->execute([
+                        $item['description'], $item['contact_id'], $item['category_id'], $item['amount'],
+                        next_due_date($item['due_date'], $item['recurrence']), $item['payment_method'],
+                        $item['recurrence'], $item['notes'], $id,
+                    ]);
+                    if ($legacy->rowCount()) audit_log('payable', (int) $pdo->lastInsertId(), 'created', 'Próxima ocorrência recorrente gerada após quitação em massa.');
+                }
+                $processed++;
+            }
+
+            $pdo->commit();
+            flash($processed ? 'success' : 'error', $processed ? $processed . ' despesa(s) quitada(s).' : 'Nenhuma despesa selecionada estava disponível para baixa.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        redirect('payables');
+    }
+
+    public function bulkEdit(): void
+    {
+        verify_csrf();
+        $ids = selected_ids_from_post();
+        $requested = [
+            'category_id' => (string) ($_POST['category_id'] ?? '__keep__'),
+            'contact_id' => (string) ($_POST['contact_id'] ?? '__keep__'),
+            'due_date' => trim((string) ($_POST['due_date'] ?? '')),
+            'payment_method' => (string) ($_POST['payment_method'] ?? '__keep__'),
+        ];
+        if ($requested['due_date'] !== '' && !is_valid_iso_date($requested['due_date'])) throw new InvalidArgumentException('Data de vencimento inválida.');
+        if ($requested['payment_method'] !== '__keep__' && !in_array($requested['payment_method'], $this->methods, true)) throw new InvalidArgumentException('Forma de pagamento inválida.');
+        foreach (['category_id', 'contact_id'] as $field) {
+            if ($requested[$field] !== '__keep__' && $requested[$field] !== '0' && filter_var($requested[$field], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+                throw new InvalidArgumentException('Opção de edição inválida.');
+            }
+        }
+        if ($requested['category_id'] === '__keep__' && $requested['contact_id'] === '__keep__' && $requested['due_date'] === '' && $requested['payment_method'] === '__keep__') {
+            throw new InvalidArgumentException('Escolha pelo menos um campo para alterar.');
+        }
+
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->prepare('SELECT * FROM payables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
+            $statement->execute($ids);
+            $processed = 0;
+            foreach ($statement->fetchAll() as $item) {
+                if ($item['status'] === 'cancelado') continue;
+                $sets = [];
+                $params = [];
+                $changes = [];
+                foreach (['category_id' => 'Categoria', 'contact_id' => 'Fornecedor'] as $field => $label) {
+                    if ($requested[$field] === '__keep__') continue;
+                    $value = $requested[$field] === '0' ? null : (int) $requested[$field];
+                    $sets[] = $field . '=?';
+                    $params[] = $value;
+                    $changes[$label] = [$item[$field], $value];
+                }
+                if ($requested['due_date'] !== '') {
+                    $sets[] = 'due_date=?';
+                    $params[] = $requested['due_date'];
+                    $changes['Vencimento'] = [$item['due_date'], $requested['due_date']];
+                    if (in_array($item['status'], ['pendente', 'vencido'], true)) {
+                        $sets[] = 'status=?';
+                        $params[] = $requested['due_date'] < date('Y-m-d') ? 'vencido' : 'pendente';
+                    }
+                }
+                if ($requested['payment_method'] !== '__keep__') {
+                    $sets[] = 'payment_method=?';
+                    $params[] = $requested['payment_method'];
+                    $changes['Forma'] = [$item['payment_method'], $requested['payment_method']];
+                }
+                $changes = changed_fields($changes);
+                if (!$changes) continue;
+                $params[] = (int) $item['id'];
+                $pdo->prepare('UPDATE payables SET ' . implode(',', $sets) . ' WHERE id=?')->execute($params);
+                audit_log('payable', (int) $item['id'], 'bulk_updated', 'Conta alterada em edição em massa.', $changes);
+                $processed++;
+            }
+            $pdo->commit();
+            flash($processed ? 'success' : 'error', $processed ? $processed . ' despesa(s) atualizada(s).' : 'Nenhuma despesa precisou ser alterada.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        redirect('payables');
+    }
+
+    public function bulkDelete(): void
+    {
+        verify_csrf();
+        $ids = selected_ids_from_post();
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->prepare('SELECT id,status FROM payables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
+            $statement->execute($ids);
+            $update = $pdo->prepare("UPDATE payables SET status='cancelado',is_scheduled=0 WHERE id=?");
+            $processed = 0;
+            foreach ($statement->fetchAll() as $item) {
+                if ($item['status'] === 'cancelado') continue;
+                $update->execute([(int) $item['id']]);
+                audit_log('payable', (int) $item['id'], 'cancelled', 'Conta a pagar cancelada em massa.');
+                $processed++;
+            }
+            $pdo->commit();
+            flash($processed ? 'success' : 'error', $processed ? $processed . ' despesa(s) cancelada(s).' : 'Nenhuma despesa selecionada estava disponível para cancelamento.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        redirect('payables');
+    }
+
     public function schedule(): void
     {
         verify_csrf();

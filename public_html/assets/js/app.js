@@ -3,6 +3,10 @@ if (window.lucide && typeof window.lucide.createIcons === 'function') window.luc
 const sidebar=document.getElementById('sidebar'),backdrop=document.getElementById('backdrop');
 document.getElementById('menuBtn')?.addEventListener('click',()=>{sidebar.classList.toggle('-translate-x-full');backdrop.classList.toggle('hidden')});
 backdrop?.addEventListener('click',()=>{sidebar.classList.add('-translate-x-full');backdrop.classList.add('hidden')});
+const sidebarCollapseBtn=document.getElementById('sidebarCollapseBtn');
+const syncSidebarState=()=>sidebarCollapseBtn?.setAttribute('aria-expanded',String(!document.documentElement.classList.contains('sidebar-collapsed')));
+sidebarCollapseBtn?.addEventListener('click',()=>{document.documentElement.classList.toggle('sidebar-collapsed');localStorage.sidebar=document.documentElement.classList.contains('sidebar-collapsed')?'collapsed':'expanded';syncSidebarState()});
+syncSidebarState();
 document.getElementById('themeBtn')?.addEventListener('click',()=>{document.documentElement.classList.toggle('dark');localStorage.theme=document.documentElement.classList.contains('dark')?'dark':'light'});
 document.querySelectorAll('[data-confirm]').forEach(form=>form.addEventListener('submit',e=>{if(!confirm(form.dataset.confirm))e.preventDefault()}));
 setTimeout(()=>document.querySelectorAll('.flash').forEach(el=>el.remove()),5000);
@@ -32,6 +36,35 @@ window.addEventListener('scroll',()=>closeActionMenus(),true);
 
 document.querySelectorAll('[data-modal-close]').forEach(button=>button.addEventListener('click',()=>document.getElementById(button.dataset.modalClose)?.close()));
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()}));
+
+document.querySelectorAll('[data-bulk-selection]').forEach(scope=>{
+  const selectAll=scope.querySelector('[data-select-all]');
+  const items=[...scope.querySelectorAll('[data-select-item]')];
+  const actions=[...scope.querySelectorAll('[data-bulk-action]')];
+  const count=scope.querySelector('[data-selected-count]');
+  const selected=()=>items.filter(item=>item.checked).map(item=>item.value);
+  const update=()=>{
+    const total=selected().length;
+    count.textContent=String(total);
+    actions.forEach(action=>action.disabled=total===0);
+    if(selectAll){selectAll.checked=items.length>0&&total===items.length;selectAll.indeterminate=total>0&&total<items.length;}
+  };
+  selectAll?.addEventListener('change',()=>{items.forEach(item=>item.checked=selectAll.checked);update()});
+  items.forEach(item=>item.addEventListener('change',update));
+  actions.forEach(action=>action.addEventListener('click',()=>{
+    const ids=selected();
+    if(!ids.length)return;
+    const dialog=document.getElementById(action.dataset.bulkOpen);
+    const form=dialog?.querySelector('form');
+    if(!dialog||!form)return;
+    form.reset();
+    const holder=form.querySelector('[data-bulk-ids]');
+    holder.replaceChildren(...ids.map(id=>{const input=document.createElement('input');input.type='hidden';input.name='ids[]';input.value=id;return input;}));
+    dialog.querySelectorAll('[data-bulk-dialog-count]').forEach(element=>element.textContent=String(ids.length));
+    dialog.showModal();
+  }));
+  update();
+});
 
 const escapeHtml=value=>String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
 const formatMoney=value=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value||0));

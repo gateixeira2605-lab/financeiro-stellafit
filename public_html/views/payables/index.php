@@ -12,15 +12,24 @@
   <button class="btn btn-light"><i data-lucide="list-filter"></i>Filtrar</button>
 </form>
 
+<div data-bulk-selection>
+<div class="card mb-3 flex flex-wrap items-center gap-2 p-3">
+  <span class="mr-auto text-sm text-slate-500"><strong data-selected-count>0</strong> selecionado(s)</span>
+  <button type="button" class="btn btn-primary" data-bulk-action data-bulk-open="payablesBulkPayDialog" disabled><i data-lucide="banknote"></i>Baixar selecionados</button>
+  <button type="button" class="btn btn-primary" data-bulk-action data-bulk-open="payablesBulkEditDialog" disabled><i data-lucide="pencil"></i>Editar selecionados</button>
+  <button type="button" class="btn bg-red-500 text-white hover:bg-red-600" data-bulk-action data-bulk-open="payablesBulkDeleteDialog" disabled><i data-lucide="trash-2"></i>Cancelar selecionados</button>
+</div>
+
 <div class="card table-wrap">
   <table class="data-table">
-    <thead><tr><th>Situação</th><th>Categoria</th><th>Fornecedor</th><th>Parcela</th><th>Vencimento</th><th>Total</th><th>Pago</th><th>Ações</th></tr></thead>
+    <thead><tr><th><input type="checkbox" class="h-4 w-4 accent-teal-600" data-select-all aria-label="Selecionar todos os lançamentos exibidos"></th><th>Situação</th><th>Categoria</th><th>Fornecedor</th><th>Parcela</th><th>Vencimento</th><th>Total</th><th>Pago</th><th>Ações</th></tr></thead>
     <tbody>
       <?php foreach ($items as $i):
         $badge = status_badge($i['status'], $i['due_date']);
         $editData = json_encode(array_intersect_key($i, array_flip(['id', 'description', 'contact_id', 'category_id', 'amount', 'due_date', 'payment_method', 'recurrence', 'notes', 'installment_number', 'installment_count'])), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
       ?>
         <tr>
+          <td><input type="checkbox" class="h-4 w-4 accent-teal-600" data-select-item value="<?=$i['id']?>" aria-label="Selecionar lançamento"></td>
           <td><span class="rounded-full px-2 py-1 text-xs font-semibold <?=$badge[1]?>"><?=$badge[0]?></span><?php if ($i['is_scheduled']): ?><span class="ml-1 text-xs text-blue-600">Agendada</span><?php endif; ?></td>
           <td class="font-medium"><?=e($i['category_name'] ?: 'Sem categoria')?><?php if ($i['attachment_id']): ?><a class="ml-2 text-teal-600" title="Baixar anexo" href="<?=url('attachment')?>&id=<?=$i['attachment_id']?>"><i class="inline" data-lucide="paperclip"></i></a><?php endif; ?></td>
           <td><?=e($i['contact_name'] ?: 'Sem fornecedor')?></td>
@@ -47,9 +56,10 @@
           </td>
         </tr>
       <?php endforeach; ?>
-      <?php if (!$items): ?><tr><td colspan="8" class="text-center text-slate-500">Nenhuma conta encontrada.</td></tr><?php endif; ?>
+      <?php if (!$items): ?><tr><td colspan="9" class="text-center text-slate-500">Nenhuma conta encontrada.</td></tr><?php endif; ?>
     </tbody>
   </table>
+</div>
 </div>
 
 <dialog id="payableFormDialog" class="w-[calc(100%-2rem)] max-w-3xl rounded-2xl bg-white p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 dark:bg-slate-900 dark:text-white">
@@ -77,6 +87,18 @@
 
 <dialog id="payablePayDialog" class="w-[calc(100%-2rem)] max-w-md rounded-2xl bg-white p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 dark:bg-slate-900 dark:text-white">
   <form method="post" action="<?=url('payables/pay')?>" class="space-y-4 p-5"><?=csrf_field()?><input id="payId" type="hidden" name="id"><div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Baixar despesa</h2><p id="payDescription" class="text-xs text-slate-500"></p></div><button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-modal-close="payablePayDialog"><i data-lucide="x"></i></button></div><div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Saldo restante: <strong id="payRemaining"></strong></div><label><span class="label">Valor que será pago</span><input id="payAmount" class="field" name="payment_amount" inputmode="decimal" required></label><label><span class="label">Data do pagamento</span><input class="field" type="date" name="payment_date" value="<?=date('Y-m-d')?>" required></label><label><span class="label">Observação (opcional)</span><input class="field" name="payment_notes" maxlength="255"></label><div class="flex justify-end gap-2"><button type="button" class="btn btn-light" data-modal-close="payablePayDialog">Cancelar</button><button class="btn btn-primary">Registrar pagamento</button></div></form>
+</dialog>
+
+<dialog id="payablesBulkPayDialog" class="w-[calc(100%-2rem)] max-w-md rounded-2xl bg-white p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 dark:bg-slate-900 dark:text-white">
+  <form method="post" action="<?=url('payables/bulk-pay')?>" class="space-y-4 p-5"><?=csrf_field()?><div data-bulk-ids></div><div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Baixar despesas selecionadas</h2><p class="text-xs text-slate-500"><strong data-bulk-dialog-count></strong> lançamento(s) selecionado(s)</p></div><button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-modal-close="payablesBulkPayDialog"><i data-lucide="x"></i></button></div><div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Cada despesa será quitada pelo seu saldo restante. Contas pagas ou canceladas serão ignoradas.</div><label><span class="label">Data do pagamento</span><input class="field" type="date" name="payment_date" value="<?=date('Y-m-d')?>" required></label><label><span class="label">Observação (opcional)</span><input class="field" name="payment_notes" maxlength="255"></label><div class="flex justify-end gap-2"><button type="button" class="btn btn-light" data-modal-close="payablesBulkPayDialog">Voltar</button><button class="btn btn-primary">Confirmar baixas</button></div></form>
+</dialog>
+
+<dialog id="payablesBulkEditDialog" class="w-[calc(100%-2rem)] max-w-xl rounded-2xl bg-white p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 dark:bg-slate-900 dark:text-white">
+  <form method="post" action="<?=url('payables/bulk-edit')?>" class="space-y-4 p-5"><?=csrf_field()?><div data-bulk-ids></div><div class="flex items-center justify-between"><div><h2 class="text-lg font-semibold">Editar despesas selecionadas</h2><p class="text-xs text-slate-500"><strong data-bulk-dialog-count></strong> lançamento(s); campos sem alteração serão preservados</p></div><button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-modal-close="payablesBulkEditDialog"><i data-lucide="x"></i></button></div><div class="grid gap-4 sm:grid-cols-2"><label><span class="label">Categoria</span><select class="field" name="category_id"><option value="__keep__">Não alterar</option><option value="0">Remover categoria</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></label><label><span class="label">Fornecedor</span><select class="field" name="contact_id"><option value="__keep__">Não alterar</option><option value="0">Remover fornecedor</option><?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></label><label><span class="label">Novo vencimento</span><input class="field" type="date" name="due_date"></label><label><span class="label">Forma de pagamento</span><select class="field" name="payment_method"><option value="__keep__">Não alterar</option><?php foreach (['pix' => 'Pix', 'boleto' => 'Boleto', 'cartao' => 'Cartão', 'dinheiro' => 'Dinheiro', 'debito_automatico' => 'Débito automático', 'transferencia' => 'Transferência'] as $v => $l): ?><option value="<?=$v?>"><?=$l?></option><?php endforeach; ?></select></label></div><div class="flex justify-end gap-2"><button type="button" class="btn btn-light" data-modal-close="payablesBulkEditDialog">Voltar</button><button class="btn btn-primary">Aplicar alterações</button></div></form>
+</dialog>
+
+<dialog id="payablesBulkDeleteDialog" class="w-[calc(100%-2rem)] max-w-md rounded-2xl bg-white p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 dark:bg-slate-900 dark:text-white">
+  <form method="post" action="<?=url('payables/bulk-delete')?>" class="space-y-4 p-5"><?=csrf_field()?><div data-bulk-ids></div><div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Cancelar despesas selecionadas</h2><button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-modal-close="payablesBulkDeleteDialog"><i data-lucide="x"></i></button></div><p class="text-sm text-slate-600 dark:text-slate-300">Você está prestes a cancelar <strong data-bulk-dialog-count></strong> lançamento(s). Eles sairão dos cálculos, mas permanecerão no histórico.</p><div class="flex justify-end gap-2"><button type="button" class="btn btn-light" data-modal-close="payablesBulkDeleteDialog">Voltar</button><button class="btn bg-red-500 text-white hover:bg-red-600">Confirmar cancelamento</button></div></form>
 </dialog>
 
 <?php $pageScripts = <<<'HTML'
