@@ -11,6 +11,13 @@ document.getElementById('themeBtn')?.addEventListener('click',()=>{document.docu
 document.querySelectorAll('[data-confirm]').forEach(form=>form.addEventListener('submit',e=>{if(!confirm(form.dataset.confirm))e.preventDefault()}));
 setTimeout(()=>document.querySelectorAll('.flash').forEach(el=>el.remove()),5000);
 
+document.querySelectorAll('[data-per-page]').forEach(select=>select.addEventListener('change',()=>{
+  const target=new URL(window.location.href);
+  target.searchParams.set('per_page',select.value);
+  target.searchParams.set('page','1');
+  window.location.assign(target.toString());
+}));
+
 const closeActionMenus=except=>document.querySelectorAll('[data-action-menu]').forEach(menu=>{if(menu!==except)menu.classList.add('hidden')});
 document.addEventListener('click',event=>{
   const toggle=event.target.closest('[data-menu-toggle]');

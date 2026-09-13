@@ -186,6 +186,32 @@ function sql_placeholders(array $values): string
     return implode(',', array_fill(0, count($values), '?'));
 }
 
+function route_query_url(string $route, array $overrides = []): string
+{
+    $query = $_GET;
+    unset($query['route']);
+    foreach ($overrides as $key => $value) {
+        if ($value === null || $value === '') unset($query[$key]);
+        else $query[$key] = $value;
+    }
+    return url($route) . ($query ? '&' . http_build_query($query) : '');
+}
+
+function pagination_pages(int $current, int $total): array
+{
+    if ($total <= 1) return [1];
+    $pages = array_unique(array_filter([1, $current - 2, $current - 1, $current, $current + 1, $current + 2, $total], fn(int $page): bool => $page >= 1 && $page <= $total));
+    sort($pages);
+    $result = [];
+    $previous = 0;
+    foreach ($pages as $page) {
+        if ($previous && $page > $previous + 1) $result[] = null;
+        $result[] = $page;
+        $previous = $page;
+    }
+    return $result;
+}
+
 function period_range(): array
 {
     $period = $_GET['period'] ?? 'current';

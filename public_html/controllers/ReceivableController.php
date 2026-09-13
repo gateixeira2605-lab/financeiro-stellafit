@@ -31,14 +31,47 @@ final class ReceivableController extends BaseController
             $params[] = $_GET['end'];
         }
 
+        $perPageOptions = [10, 25, 50, 100];
+        $perPage = (int) ($_GET['per_page'] ?? 10);
+        if (!in_array($perPage, $perPageOptions, true)) $perPage = 10;
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $whereSql = implode(' AND ', $where);
+
+        $summaryStmt = db()->prepare("SELECT COUNT(*) total_records,
+            COALESCE(SUM(r.expected_amount),0) total_amount,
+            COALESCE(SUM(r.received_amount),0) total_paid,
+            COALESCE(SUM(CASE WHEN r.status NOT IN ('recebido','cancelado') THEN r.remaining_amount ELSE 0 END),0) total_open
+            FROM receivables r LEFT JOIN categories c ON c.id=r.category_id LEFT JOIN contacts ct ON ct.id=r.contact_id
+            WHERE $whereSql");
+        $summaryStmt->execute($params);
+        $summary = $summaryStmt->fetch();
+        $totalRecords = (int) $summary['total_records'];
+        $totalPages = max(1, (int) ceil($totalRecords / $perPage));
+        $page = min($page, $totalPages);
+        $offset = ($page - 1) * $perPage;
+
         $stmt = db()->prepare("SELECT r.*,c.name category_name,ct.name contact_name
             FROM receivables r LEFT JOIN categories c ON c.id=r.category_id LEFT JOIN contacts ct ON ct.id=r.contact_id
-            WHERE " . implode(' AND ', $where) . ' ORDER BY r.due_date,r.id');
+            WHERE $whereSql ORDER BY r.due_date,r.id LIMIT $perPage OFFSET $offset");
         $stmt->execute($params);
         $items = $stmt->fetchAll();
+        $pagination = [
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_records' => $totalRecords,
+            'total_pages' => $totalPages,
+            'from' => $totalRecords ? $offset + 1 : 0,
+            'to' => min($offset + $perPage, $totalRecords),
+        ];
+        $totals = [
+            'total_amount' => $summary['total_amount'],
+            'paid_label' => 'Total recebido',
+            'paid_amount' => $summary['total_paid'],
+            'open_amount' => $summary['total_open'],
+        ];
         $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'receita%' ORDER BY name");
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('cliente','ambos') ORDER BY name");
-        $this->render('receivables/index', compact('items', 'categories', 'contacts', 'search') + ['pageTitle' => 'Contas a receber']);
+        $this->render('receivables/index', compact('items', 'categories', 'contacts', 'search', 'pagination', 'totals') + ['pageTitle' => 'Contas a receber']);
     }
 
     public function form(): void
