@@ -9,6 +9,12 @@ final class ReceivableController extends BaseController
     {
         $where = ['1=1'];
         $params = [];
+        $search = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
+        if ($search !== '') {
+            $where[] = '(r.description LIKE ? OR r.notes LIKE ? OR ct.name LIKE ? OR ct.document LIKE ? OR c.name LIKE ?)';
+            $term = '%' . $search . '%';
+            array_push($params, $term, $term, $term, $term, $term);
+        }
         foreach (['status' => 'r.status', 'category' => 'r.category_id', 'contact' => 'r.contact_id', 'payment_method' => 'r.receipt_method'] as $input => $column) {
             if (($_GET[$input] ?? '') !== '') {
                 $where[] = "$column=?";
@@ -32,7 +38,7 @@ final class ReceivableController extends BaseController
         $items = $stmt->fetchAll();
         $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'receita%' ORDER BY name");
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('cliente','ambos') ORDER BY name");
-        $this->render('receivables/index', compact('items', 'categories', 'contacts') + ['pageTitle' => 'Contas a receber']);
+        $this->render('receivables/index', compact('items', 'categories', 'contacts', 'search') + ['pageTitle' => 'Contas a receber']);
     }
 
     public function form(): void

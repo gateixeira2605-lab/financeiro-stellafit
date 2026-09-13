@@ -1,7 +1,8 @@
 <div class="mb-4 flex justify-end"><button id="newPayableBtn" type="button" class="btn btn-primary"><i data-lucide="plus"></i>Nova despesa</button></div>
 
-<form class="card mb-5 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-7">
+<form class="card mb-5 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-9">
   <input type="hidden" name="route" value="payables">
+  <div class="relative sm:col-span-2 xl:col-span-2"><i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i><input class="field !pl-10" type="search" name="q" value="<?=e($search)?>" maxlength="100" aria-label="Pesquisar contas a pagar" placeholder="Pesquisar descrição, fornecedor, CPF/CNPJ, categoria ou observação"></div>
   <select class="field" name="status"><option value="">Status</option><?php foreach (['pendente' => 'Pendente', 'vencido' => 'Vencido', 'parcial' => 'Parcial', 'pago' => 'Pago', 'cancelado' => 'Cancelado'] as $v => $l): ?><option value="<?=$v?>" <?=($_GET['status'] ?? '') === $v ? 'selected' : ''?>><?=$l?></option><?php endforeach; ?></select>
   <select class="field" name="category"><option value="">Categoria</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>" <?=($_GET['category'] ?? '') == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?></select>
   <select class="field" name="contact"><option value="">Fornecedor</option><?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>" <?=($_GET['contact'] ?? '') == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?></select>

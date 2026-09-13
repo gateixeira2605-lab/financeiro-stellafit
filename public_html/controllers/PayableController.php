@@ -10,6 +10,12 @@ final class PayableController extends BaseController
     {
         $where = ['1=1'];
         $params = [];
+        $search = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
+        if ($search !== '') {
+            $where[] = '(p.description LIKE ? OR p.notes LIKE ? OR ct.name LIKE ? OR ct.document LIKE ? OR c.name LIKE ?)';
+            $term = '%' . $search . '%';
+            array_push($params, $term, $term, $term, $term, $term);
+        }
         foreach (['status' => 'p.status', 'category' => 'p.category_id', 'contact' => 'p.contact_id', 'payment_method' => 'p.payment_method'] as $input => $column) {
             if (($_GET[$input] ?? '') !== '') {
                 $where[] = "$column=?";
@@ -34,7 +40,7 @@ final class PayableController extends BaseController
         $items = $stmt->fetchAll();
         $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'despesa%' OR classification='investimento' ORDER BY name");
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('fornecedor','ambos') ORDER BY name");
-        $this->render('payables/index', compact('items', 'categories', 'contacts') + ['pageTitle' => 'Contas a pagar']);
+        $this->render('payables/index', compact('items', 'categories', 'contacts', 'search') + ['pageTitle' => 'Contas a pagar']);
     }
 
     public function form(): void
