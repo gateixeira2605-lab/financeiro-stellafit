@@ -1,4 +1,5 @@
-lucide.createIcons();
+// A indisponibilidade do CDN de ícones não pode interromper as ações da tela.
+if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
 const sidebar=document.getElementById('sidebar'),backdrop=document.getElementById('backdrop');
 document.getElementById('menuBtn')?.addEventListener('click',()=>{sidebar.classList.toggle('-translate-x-full');backdrop.classList.toggle('hidden')});
 backdrop?.addEventListener('click',()=>{sidebar.classList.add('-translate-x-full');backdrop.classList.add('hidden')});

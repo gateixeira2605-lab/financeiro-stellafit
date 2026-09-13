@@ -22,7 +22,17 @@ function url(string $route = ''): string
 
 function asset(string $path): string
 {
-    return rtrim((string) config('base_url', ''), '/') . '/assets/' . ltrim($path, '/');
+    $normalizedPath = ltrim($path, '/');
+    $url = rtrim((string) config('base_url', ''), '/') . '/assets/' . $normalizedPath;
+    $file = __DIR__ . '/assets/' . $normalizedPath;
+
+    // Evita que um deploy novo continue usando JavaScript ou CSS antigo do cache.
+    if (is_file($file)) {
+        $version = substr((string) hash_file('sha256', $file), 0, 12);
+        $url .= '?v=' . $version;
+    }
+
+    return $url;
 }
 
 function e(mixed $value): string
