@@ -14,7 +14,7 @@ CREATE TABLE categories (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL UNIQUE,
   type ENUM('fixa','variavel') NOT NULL,
-  classification ENUM('despesa_operacional','despesa_administrativa','investimento','receita_operacional','receita_nao_operacional') NOT NULL,
+  classification ENUM('despesa_operacional','despesa_administrativa','investimento','receita_operacional','receita_nao_operacional','ajuste_saldo') NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_category_type (type), INDEX idx_category_class (classification)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -100,12 +100,43 @@ CREATE TABLE financial_transactions (
   entity_id INT UNSIGNED NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   transaction_date DATE NOT NULL,
+  bank_account_id INT UNSIGNED NULL,
+  payment_method VARCHAR(30) NULL,
   notes VARCHAR(255) NULL,
   created_by INT UNSIGNED NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_transaction_entity (entity_type,entity_id),
+  INDEX idx_transaction_bank (bank_account_id),
   INDEX idx_transaction_date (transaction_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE bank_accounts (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL UNIQUE,
+  opening_balance DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  notes VARCHAR(255) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_bank_active (active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE bank_balance_adjustments (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  bank_account_id INT UNSIGNED NOT NULL,
+  category_id INT UNSIGNED NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  adjustment_date DATE NOT NULL,
+  notes VARCHAR(255) NULL,
+  created_by INT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_adjustment_bank FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_adjustment_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT,
+  INDEX idx_adjustment_bank_date (bank_account_id,adjustment_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE financial_transactions
+  ADD CONSTRAINT fk_transaction_bank FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL;
 
 CREATE TABLE audit_logs (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -125,7 +156,7 @@ CREATE TABLE schema_migrations (
   applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO schema_migrations (version) VALUES ('20260914_schema_alignment_v1');
+INSERT INTO schema_migrations (version) VALUES ('20260914_schema_alignment_v1'),('20260917_bank_accounts_v1');
 
 INSERT INTO users (name,username,password) VALUES ('Administrador','admin','{SHA256}240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9');
 
@@ -134,4 +165,4 @@ INSERT INTO categories (name,type,classification) VALUES
 ('Internet','fixa','despesa_operacional'),('Folha de Pagamento','fixa','despesa_administrativa'),('Material de Limpeza','variavel','despesa_operacional'),
 ('Manutenção','variavel','despesa_operacional'),('Equipamentos','variavel','investimento'),('Marketing','variavel','despesa_administrativa'),
 ('Mensalidades','fixa','receita_operacional'),('Day Use','variavel','receita_operacional'),('Personal Trainer','variavel','receita_operacional'),
-('Outros','variavel','despesa_operacional');
+('Outros','variavel','despesa_operacional'),('Ajuste de saldo','variavel','ajuste_saldo');

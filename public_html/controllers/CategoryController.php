@@ -26,7 +26,7 @@ final class CategoryController extends BaseController
         $name = trim((string) ($_POST['name'] ?? ''));
         $type = (string) ($_POST['type'] ?? '');
         $classification = (string) ($_POST['classification'] ?? '');
-        $validClasses = ['despesa_operacional','despesa_administrativa','investimento','receita_operacional','receita_nao_operacional'];
+        $validClasses = ['despesa_operacional','despesa_administrativa','investimento','receita_operacional','receita_nao_operacional','ajuste_saldo'];
         if ($name === '' || !in_array($type, ['fixa','variavel'], true) || !in_array($classification, $validClasses, true)) throw new InvalidArgumentException('Preencha os dados da categoria corretamente.');
         if ($id) {
             $stmt = db()->prepare('UPDATE categories SET name=?, type=?, classification=? WHERE id=?'); $stmt->execute([$name, $type, $classification, $id]);

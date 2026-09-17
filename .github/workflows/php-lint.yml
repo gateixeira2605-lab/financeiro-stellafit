@@ -1,0 +1,14 @@
+name: PHP lint
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP syntax
+        run: find public_html -type f -name '*.php' -print0 | xargs -0 -n1 php -l

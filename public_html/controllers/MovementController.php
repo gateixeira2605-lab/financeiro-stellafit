@@ -31,8 +31,11 @@ final class MovementController extends BaseController
             return;
         }
 
-        $transactions = db()->prepare("SELECT t.amount,t.transaction_date,t.notes,t.created_at,COALESCE(u.name,'Sistema') user_name
-            FROM financial_transactions t LEFT JOIN users u ON u.id=t.created_by
+        $transactions = db()->prepare("SELECT t.amount,t.transaction_date,t.payment_method,t.notes,t.created_at,
+            COALESCE(b.name,'Não informado') bank_name,COALESCE(u.name,'Sistema') user_name
+            FROM financial_transactions t
+            LEFT JOIN bank_accounts b ON b.id=t.bank_account_id
+            LEFT JOIN users u ON u.id=t.created_by
             WHERE t.entity_type=? AND t.entity_id=? ORDER BY t.transaction_date DESC,t.id DESC");
         $transactions->execute([$entityType, $id]);
 

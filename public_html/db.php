@@ -31,6 +31,7 @@ function ensure_database_schema(): void
     $version = '20260914_schema_alignment_v1';
 
     if (schema_table_exists($pdo, 'schema_migrations') && schema_version_exists($pdo, $version)) {
+        ensure_bank_accounts_schema($pdo);
         return;
     }
 
@@ -46,6 +47,9 @@ function ensure_database_schema(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         if (schema_version_exists($pdo, $version)) {
+            // Outro processo pode ter concluído esta etapa enquanto aguardávamos
+            // o lock. Garanta também a migração dependente antes de atender a rota.
+            ensure_bank_accounts_schema($pdo);
             return;
         }
 
@@ -155,6 +159,77 @@ function ensure_database_schema(): void
     } finally {
         $pdo->query("SELECT RELEASE_LOCK('financontrol_schema_migration')");
     }
+
+    ensure_bank_accounts_schema($pdo);
+}
+
+function ensure_bank_accounts_schema(PDO $pdo): void
+{
+    $version = '20260917_bank_accounts_v1';
+    if (schema_table_exists($pdo, 'schema_migrations') && schema_version_exists($pdo, $version)) return;
+
+    $lockAcquired = (int) $pdo->query("SELECT GET_LOCK('financontrol_bank_accounts_migration', 15)")->fetchColumn() === 1;
+    if (!$lockAcquired) throw new RuntimeException('O cadastro de bancos está sendo atualizado. Aguarde alguns segundos e tente novamente.');
+
+    try {
+        if (schema_version_exists($pdo, $version)) return;
+
+        schema_create_backup($pdo, 'categories', 'schema_backup_categories_20260917');
+        schema_create_backup($pdo, 'financial_transactions', 'schema_backup_financial_transactions_20260917');
+
+        $classification = schema_column_type($pdo, 'categories', 'classification');
+        if (!str_contains($classification, "'ajuste_saldo'")) {
+            $pdo->exec("ALTER TABLE categories MODIFY COLUMN classification ENUM('despesa_operacional','despesa_administrativa','investimento','receita_operacional','receita_nao_operacional','ajuste_saldo') NOT NULL");
+        }
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS bank_accounts (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(120) NOT NULL UNIQUE,
+            opening_balance DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            active TINYINT(1) NOT NULL DEFAULT 1,
+            notes VARCHAR(255) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_bank_active (active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS bank_balance_adjustments (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            bank_account_id INT UNSIGNED NOT NULL,
+            category_id INT UNSIGNED NOT NULL,
+            amount DECIMAL(12,2) NOT NULL,
+            adjustment_date DATE NOT NULL,
+            notes VARCHAR(255) NULL,
+            created_by INT UNSIGNED NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_adjustment_bank_date (bank_account_id,adjustment_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        schema_add_column($pdo, 'financial_transactions', 'bank_account_id', 'INT UNSIGNED NULL');
+        schema_add_column($pdo, 'financial_transactions', 'payment_method', 'VARCHAR(30) NULL');
+        if (!schema_index_exists($pdo, 'financial_transactions', 'idx_transaction_bank')) {
+            $pdo->exec('ALTER TABLE financial_transactions ADD INDEX idx_transaction_bank (bank_account_id)');
+        }
+
+        if (!schema_constraint_exists($pdo, 'financial_transactions', 'fk_transaction_bank')) {
+            $pdo->exec('ALTER TABLE financial_transactions ADD CONSTRAINT fk_transaction_bank FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL');
+        }
+        if (!schema_constraint_exists($pdo, 'bank_balance_adjustments', 'fk_adjustment_bank')) {
+            $pdo->exec('ALTER TABLE bank_balance_adjustments ADD CONSTRAINT fk_adjustment_bank FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE RESTRICT');
+        }
+        if (!schema_constraint_exists($pdo, 'bank_balance_adjustments', 'fk_adjustment_category')) {
+            $pdo->exec('ALTER TABLE bank_balance_adjustments ADD CONSTRAINT fk_adjustment_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT');
+        }
+
+        $pdo->exec("INSERT INTO categories (name,type,classification) VALUES ('Ajuste de saldo','variavel','ajuste_saldo') ON DUPLICATE KEY UPDATE type='variavel',classification='ajuste_saldo'");
+        $statement = $pdo->prepare('INSERT INTO schema_migrations (version) VALUES (?)');
+        $statement->execute([$version]);
+    } catch (Throwable $exception) {
+        error_log('Falha ao criar o módulo de contas bancárias: ' . $exception->getMessage());
+        throw new RuntimeException('Não foi possível atualizar o banco para o módulo de contas bancárias.', 0, $exception);
+    } finally {
+        $pdo->query("SELECT RELEASE_LOCK('financontrol_bank_accounts_migration')");
+    }
 }
 
 function schema_table_exists(PDO $pdo, string $table): bool
@@ -190,6 +265,15 @@ function schema_index_exists(PDO $pdo, string $table, string $index): bool
         'SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?'
     );
     $statement->execute([$table, $index]);
+    return (int) $statement->fetchColumn() > 0;
+}
+
+function schema_constraint_exists(PDO $pdo, string $table, string $constraint): bool
+{
+    $statement = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?'
+    );
+    $statement->execute([$table, $constraint]);
     return (int) $statement->fetchColumn() > 0;
 }
 

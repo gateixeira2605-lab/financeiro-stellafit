@@ -131,10 +131,28 @@ function audit_log(string $entityType, int $entityId, string $action, string $de
     $stmt->execute([$entityType, $entityId, $action, $description, $payload, (int) ($_SESSION['user_id'] ?? 0) ?: null]);
 }
 
-function transaction_record(string $entityType, int $entityId, string $amount, string $date, string $notes = ''): void
+function transaction_record(string $entityType, int $entityId, string $amount, string $date, string $notes = '', ?int $bankAccountId = null, ?string $paymentMethod = null): void
 {
-    $stmt = db()->prepare('INSERT INTO financial_transactions (entity_type,entity_id,amount,transaction_date,notes,created_by) VALUES (?,?,?,?,?,?)');
-    $stmt->execute([$entityType, $entityId, $amount, $date, $notes !== '' ? $notes : null, (int) ($_SESSION['user_id'] ?? 0) ?: null]);
+    $stmt = db()->prepare('INSERT INTO financial_transactions (entity_type,entity_id,amount,transaction_date,notes,bank_account_id,payment_method,created_by) VALUES (?,?,?,?,?,?,?,?)');
+    $stmt->execute([$entityType, $entityId, $amount, $date, $notes !== '' ? $notes : null, $bankAccountId, $paymentMethod, (int) ($_SESSION['user_id'] ?? 0) ?: null]);
+}
+
+function active_bank_accounts(): array
+{
+    return select_options("SELECT b.id,b.name,b.opening_balance
+        + COALESCE((SELECT SUM(CASE WHEN t.entity_type='receivable' THEN t.amount ELSE -t.amount END) FROM financial_transactions t WHERE t.bank_account_id=b.id),0)
+        + COALESCE((SELECT SUM(a.amount) FROM bank_balance_adjustments a WHERE a.bank_account_id=b.id),0) balance
+        FROM bank_accounts b WHERE b.active=1 ORDER BY b.name");
+}
+
+function require_active_bank_account(PDO $pdo, int $bankAccountId): array
+{
+    if ($bankAccountId <= 0) throw new InvalidArgumentException('Selecione a conta bancária da movimentação.');
+    $statement = $pdo->prepare('SELECT id,name FROM bank_accounts WHERE id=? AND active=1 FOR UPDATE');
+    $statement->execute([$bankAccountId]);
+    $account = $statement->fetch();
+    if (!$account) throw new InvalidArgumentException('A conta bancária selecionada não está disponível.');
+    return $account;
 }
 
 function changed_fields(array $fields): array

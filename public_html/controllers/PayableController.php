@@ -78,7 +78,8 @@ final class PayableController extends BaseController
         ];
         $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'despesa%' OR classification='investimento' ORDER BY name");
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('fornecedor','ambos') ORDER BY name");
-        $this->render('payables/index', compact('items', 'categories', 'contacts', 'search', 'pagination', 'totals') + ['pageTitle' => 'Contas a pagar']);
+        $bankAccounts = active_bank_accounts();
+        $this->render('payables/index', compact('items', 'categories', 'contacts', 'bankAccounts', 'search', 'pagination', 'totals') + ['pageTitle' => 'Contas a pagar']);
     }
 
     public function form(): void
@@ -190,11 +191,15 @@ final class PayableController extends BaseController
         $paymentCents = decimal_cents($_POST['payment_amount'] ?? '');
         $date = (string) ($_POST['payment_date'] ?? date('Y-m-d'));
         $notes = trim((string) ($_POST['payment_notes'] ?? ''));
+        $bankAccountId = (int) ($_POST['bank_account_id'] ?? 0);
+        $method = (string) ($_POST['payment_method'] ?? '');
         if (!is_valid_iso_date($date)) throw new InvalidArgumentException('Data de pagamento inválida.');
+        if (!in_array($method, $this->methods, true)) throw new InvalidArgumentException('Forma de pagamento inválida.');
 
         $pdo = db();
         $pdo->beginTransaction();
         try {
+            $bankAccount = require_active_bank_account($pdo, $bankAccountId);
             $stmt = $pdo->prepare('SELECT * FROM payables WHERE id=? FOR UPDATE');
             $stmt->execute([$id]);
             $item = $stmt->fetch();
@@ -208,10 +213,10 @@ final class PayableController extends BaseController
             $newPaidCents = $paidCents + $paymentCents;
             $newRemainingCents = $totalCents - $newPaidCents;
             $status = $newRemainingCents === 0 ? 'pago' : 'parcial';
-            $pdo->prepare('UPDATE payables SET paid_amount=?,status=?,payment_date=? WHERE id=?')
-                ->execute([cents_decimal($newPaidCents), $status, $date, $id]);
-            transaction_record('payable', $id, cents_decimal($paymentCents), $date, $notes);
-            audit_log('payable', $id, 'payment', 'Pagamento de ' . money(cents_decimal($paymentCents)) . ' registrado. Saldo restante: ' . money(cents_decimal($newRemainingCents)) . '.');
+            $pdo->prepare('UPDATE payables SET paid_amount=?,status=?,payment_date=?,payment_method=? WHERE id=?')
+                ->execute([cents_decimal($newPaidCents), $status, $date, $method, $id]);
+            transaction_record('payable', $id, cents_decimal($paymentCents), $date, $notes, $bankAccountId, $method);
+            audit_log('payable', $id, 'payment', 'Pagamento de ' . money(cents_decimal($paymentCents)) . ' registrado em ' . $bankAccount['name'] . '. Saldo restante: ' . money(cents_decimal($newRemainingCents)) . '.');
 
             // Compatibilidade: recorrências antigas só geram a próxima conta após a quitação integral.
             if ($status === 'pago' && $item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
@@ -242,15 +247,19 @@ final class PayableController extends BaseController
         $ids = selected_ids_from_post();
         $date = (string) ($_POST['payment_date'] ?? date('Y-m-d'));
         $notes = mb_substr(trim((string) ($_POST['payment_notes'] ?? '')), 0, 255);
+        $bankAccountId = (int) ($_POST['bank_account_id'] ?? 0);
+        $method = (string) ($_POST['payment_method'] ?? '');
         if (!is_valid_iso_date($date)) throw new InvalidArgumentException('Data de pagamento inválida.');
+        if (!in_array($method, $this->methods, true)) throw new InvalidArgumentException('Forma de pagamento inválida.');
 
         $pdo = db();
         $pdo->beginTransaction();
         try {
+            $bankAccount = require_active_bank_account($pdo, $bankAccountId);
             $statement = $pdo->prepare('SELECT * FROM payables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
             $statement->execute($ids);
             $items = $statement->fetchAll();
-            $update = $pdo->prepare("UPDATE payables SET paid_amount=amount,status='pago',payment_date=?,is_scheduled=0 WHERE id=?");
+            $update = $pdo->prepare("UPDATE payables SET paid_amount=amount,status='pago',payment_date=?,payment_method=?,is_scheduled=0 WHERE id=?");
             $legacy = $pdo->prepare("INSERT IGNORE INTO payables
                 (description,contact_id,category_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
                 VALUES (?,?,?,?,?,?,'pendente',?,?,?)");
@@ -262,9 +271,9 @@ final class PayableController extends BaseController
                 if ($remainingCents <= 0) continue;
 
                 $id = (int) $item['id'];
-                $update->execute([$date, $id]);
-                transaction_record('payable', $id, cents_decimal($remainingCents), $date, $notes);
-                audit_log('payable', $id, 'payment', 'Quitação em massa de ' . money(cents_decimal($remainingCents)) . ' registrada.');
+                $update->execute([$date, $method, $id]);
+                transaction_record('payable', $id, cents_decimal($remainingCents), $date, $notes, $bankAccountId, $method);
+                audit_log('payable', $id, 'payment', 'Quitação em massa de ' . money(cents_decimal($remainingCents)) . ' registrada em ' . $bankAccount['name'] . '.');
 
                 if ($item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
                     $legacy->execute([

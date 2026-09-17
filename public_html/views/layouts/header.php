@@ -12,6 +12,7 @@
     <a class="nav-link <?=$navClass('dashboard')?>" title="Dashboard" href="<?=url('dashboard')?>"><i data-lucide="layout-dashboard"></i><span class="sidebar-label">Dashboard</span></a>
     <a class="nav-link <?=$navClass('payables')?>" title="Contas a pagar" href="<?=url('payables')?>"><i data-lucide="arrow-up-circle"></i><span class="sidebar-label">Contas a pagar</span></a>
     <a class="nav-link <?=$navClass('receivables')?>" title="Contas a receber" href="<?=url('receivables')?>"><i data-lucide="arrow-down-circle"></i><span class="sidebar-label">Contas a receber</span></a>
+    <a class="nav-link <?=$navClass('banks')?>" title="Contas bancárias" href="<?=url('banks')?>"><i data-lucide="landmark"></i><span class="sidebar-label">Contas bancárias</span></a>
     <a class="nav-link <?=$navClass('reconciliation')?>" title="Conciliação" href="<?=url('reconciliation')?>"><i data-lucide="scale"></i><span class="sidebar-label">Conciliação</span></a>
     <div class="sidebar-section px-3 pt-5 pb-1 text-[11px] uppercase tracking-widest text-slate-400">Cadastros</div>
     <a class="nav-link <?=$navClass('categories')?>" title="Categorias" href="<?=url('categories')?>"><i data-lucide="tags"></i><span class="sidebar-label">Categorias</span></a>

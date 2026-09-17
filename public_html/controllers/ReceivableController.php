@@ -76,7 +76,8 @@ final class ReceivableController extends BaseController
         ];
         $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'receita%' ORDER BY name");
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('cliente','ambos') ORDER BY name");
-        $this->render('receivables/index', compact('items', 'categories', 'contacts', 'search', 'pagination', 'totals') + ['pageTitle' => 'Contas a receber']);
+        $bankAccounts = active_bank_accounts();
+        $this->render('receivables/index', compact('items', 'categories', 'contacts', 'bankAccounts', 'search', 'pagination', 'totals') + ['pageTitle' => 'Contas a receber']);
     }
 
     public function form(): void
@@ -156,11 +157,15 @@ final class ReceivableController extends BaseController
         $receivedCents = decimal_cents($_POST['received_amount'] ?? '');
         $date = (string) ($_POST['receipt_date'] ?? date('Y-m-d'));
         $notes = trim((string) ($_POST['receipt_notes'] ?? ''));
+        $bankAccountId = (int) ($_POST['bank_account_id'] ?? 0);
+        $method = (string) ($_POST['receipt_method'] ?? '');
         if (!is_valid_iso_date($date)) throw new InvalidArgumentException('Data de recebimento inválida.');
+        if (!in_array($method, $this->methods, true)) throw new InvalidArgumentException('Forma de recebimento inválida.');
 
         $pdo = db();
         $pdo->beginTransaction();
         try {
+            $bankAccount = require_active_bank_account($pdo, $bankAccountId);
             $stmt = $pdo->prepare('SELECT * FROM receivables WHERE id=? FOR UPDATE');
             $stmt->execute([$id]);
             $item = $stmt->fetch();
@@ -173,10 +178,10 @@ final class ReceivableController extends BaseController
             $newTotalCents = $previousCents + $receivedCents;
             $newRemainingCents = $expectedCents - $newTotalCents;
             $status = $newRemainingCents === 0 ? 'recebido' : 'parcial';
-            $pdo->prepare('UPDATE receivables SET received_amount=?,receipt_date=?,status=? WHERE id=?')
-                ->execute([cents_decimal($newTotalCents), $date, $status, $id]);
-            transaction_record('receivable', $id, cents_decimal($receivedCents), $date, $notes);
-            audit_log('receivable', $id, 'receipt', 'Recebimento de ' . money(cents_decimal($receivedCents)) . ' registrado. Saldo restante: ' . money(cents_decimal($newRemainingCents)) . '.');
+            $pdo->prepare('UPDATE receivables SET received_amount=?,receipt_date=?,status=?,receipt_method=? WHERE id=?')
+                ->execute([cents_decimal($newTotalCents), $date, $status, $method, $id]);
+            transaction_record('receivable', $id, cents_decimal($receivedCents), $date, $notes, $bankAccountId, $method);
+            audit_log('receivable', $id, 'receipt', 'Recebimento de ' . money(cents_decimal($receivedCents)) . ' registrado em ' . $bankAccount['name'] . '. Saldo restante: ' . money(cents_decimal($newRemainingCents)) . '.');
             $pdo->commit();
             flash('success', $status === 'recebido' ? 'Recebimento concluído.' : 'Recebimento parcial registrado.');
         } catch (Throwable $e) {
@@ -192,23 +197,27 @@ final class ReceivableController extends BaseController
         $ids = selected_ids_from_post();
         $date = (string) ($_POST['receipt_date'] ?? date('Y-m-d'));
         $notes = mb_substr(trim((string) ($_POST['receipt_notes'] ?? '')), 0, 255);
+        $bankAccountId = (int) ($_POST['bank_account_id'] ?? 0);
+        $method = (string) ($_POST['receipt_method'] ?? '');
         if (!is_valid_iso_date($date)) throw new InvalidArgumentException('Data de recebimento inválida.');
+        if (!in_array($method, $this->methods, true)) throw new InvalidArgumentException('Forma de recebimento inválida.');
 
         $pdo = db();
         $pdo->beginTransaction();
         try {
+            $bankAccount = require_active_bank_account($pdo, $bankAccountId);
             $statement = $pdo->prepare('SELECT * FROM receivables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
             $statement->execute($ids);
-            $update = $pdo->prepare("UPDATE receivables SET received_amount=expected_amount,status='recebido',receipt_date=? WHERE id=?");
+            $update = $pdo->prepare("UPDATE receivables SET received_amount=expected_amount,status='recebido',receipt_date=?,receipt_method=? WHERE id=?");
             $processed = 0;
             foreach ($statement->fetchAll() as $item) {
                 if (in_array($item['status'], ['recebido', 'cancelado'], true)) continue;
                 $remainingCents = decimal_cents($item['expected_amount']) - decimal_cents($item['received_amount']);
                 if ($remainingCents <= 0) continue;
                 $id = (int) $item['id'];
-                $update->execute([$date, $id]);
-                transaction_record('receivable', $id, cents_decimal($remainingCents), $date, $notes);
-                audit_log('receivable', $id, 'receipt', 'Quitação em massa de ' . money(cents_decimal($remainingCents)) . ' registrada.');
+                $update->execute([$date, $method, $id]);
+                transaction_record('receivable', $id, cents_decimal($remainingCents), $date, $notes, $bankAccountId, $method);
+                audit_log('receivable', $id, 'receipt', 'Quitação em massa de ' . money(cents_decimal($remainingCents)) . ' registrada em ' . $bankAccount['name'] . '.');
                 $processed++;
             }
             $pdo->commit();
