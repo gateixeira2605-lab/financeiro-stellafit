@@ -278,3 +278,27 @@ function validate_date_range(string $start, string $end): void
         throw new InvalidArgumentException('Período inválido.');
     }
 }
+
+function append_account_date_filters(array &$where, array &$params, string $column, string $startKey, string $endKey, bool $timestamp = false): void
+{
+    $start = trim((string) ($_GET[$startKey] ?? ''));
+    $end = trim((string) ($_GET[$endKey] ?? ''));
+
+    if ($start !== '' && !is_valid_iso_date($start)) throw new InvalidArgumentException('Data inicial inválida.');
+    if ($end !== '' && !is_valid_iso_date($end)) throw new InvalidArgumentException('Data final inválida.');
+    if ($start !== '' && $end !== '' && $start > $end) throw new InvalidArgumentException('A data inicial não pode ser posterior à data final.');
+
+    if ($start !== '') {
+        $where[] = $column . ' >= ?';
+        $params[] = $timestamp ? $start . ' 00:00:00' : $start;
+    }
+    if ($end !== '') {
+        if ($timestamp) {
+            $where[] = $column . ' < ?';
+            $params[] = (new DateTimeImmutable($end))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
+        } else {
+            $where[] = $column . ' <= ?';
+            $params[] = $end;
+        }
+    }
+}

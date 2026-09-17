@@ -15,21 +15,26 @@ final class ReceivableController extends BaseController
             $term = '%' . $search . '%';
             array_push($params, $term, $term, $term, $term, $term);
         }
-        foreach (['status' => 'r.status', 'category' => 'r.category_id', 'contact' => 'r.contact_id', 'payment_method' => 'r.receipt_method'] as $input => $column) {
+        foreach (['category' => 'r.category_id', 'contact' => 'r.contact_id', 'payment_method' => 'r.receipt_method'] as $input => $column) {
             if (($_GET[$input] ?? '') !== '') {
                 $where[] = "$column=?";
                 $params[] = $_GET[$input];
             }
         }
-        if (($_GET['status'] ?? '') === '') $where[] = "r.status<>'cancelado'";
-        if (!empty($_GET['start'])) {
-            $where[] = 'r.due_date>=?';
-            $params[] = $_GET['start'];
+        $status = (string) ($_GET['status'] ?? '');
+        if (in_array($status, ['pendente', 'vencido', 'parcial', 'recebido', 'cancelado'], true)) {
+            $where[] = 'r.status=?';
+            $params[] = $status;
+        } else {
+            $view = (string) ($_GET['view'] ?? 'all');
+            if ($view === 'open') $where[] = "r.status NOT IN ('recebido','cancelado')";
+            elseif ($view === 'settled') $where[] = "r.status='recebido'";
+            elseif ($view === 'overdue') $where[] = "r.status NOT IN ('recebido','cancelado') AND r.due_date<CURDATE()";
+            else $where[] = "r.status<>'cancelado'";
         }
-        if (!empty($_GET['end'])) {
-            $where[] = 'r.due_date<=?';
-            $params[] = $_GET['end'];
-        }
+        append_account_date_filters($where, $params, 'r.created_at', 'issue_start', 'issue_end', true);
+        append_account_date_filters($where, $params, 'r.receipt_date', 'settlement_start', 'settlement_end');
+        append_account_date_filters($where, $params, 'r.due_date', 'due_start', 'due_end');
 
         $perPageOptions = [10, 25, 50, 100];
         $perPage = (int) ($_GET['per_page'] ?? 10);

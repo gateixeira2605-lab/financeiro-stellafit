@@ -16,21 +16,26 @@ final class PayableController extends BaseController
             $term = '%' . $search . '%';
             array_push($params, $term, $term, $term, $term, $term);
         }
-        foreach (['status' => 'p.status', 'category' => 'p.category_id', 'contact' => 'p.contact_id', 'payment_method' => 'p.payment_method'] as $input => $column) {
+        foreach (['category' => 'p.category_id', 'contact' => 'p.contact_id', 'payment_method' => 'p.payment_method'] as $input => $column) {
             if (($_GET[$input] ?? '') !== '') {
                 $where[] = "$column=?";
                 $params[] = $_GET[$input];
             }
         }
-        if (($_GET['status'] ?? '') === '') $where[] = "p.status<>'cancelado'";
-        if (!empty($_GET['start'])) {
-            $where[] = 'p.due_date>=?';
-            $params[] = $_GET['start'];
+        $status = (string) ($_GET['status'] ?? '');
+        if (in_array($status, ['pendente', 'vencido', 'parcial', 'pago', 'cancelado'], true)) {
+            $where[] = 'p.status=?';
+            $params[] = $status;
+        } else {
+            $view = (string) ($_GET['view'] ?? 'all');
+            if ($view === 'open') $where[] = "p.status NOT IN ('pago','cancelado')";
+            elseif ($view === 'settled') $where[] = "p.status='pago'";
+            elseif ($view === 'overdue') $where[] = "p.status NOT IN ('pago','cancelado') AND p.due_date<CURDATE()";
+            else $where[] = "p.status<>'cancelado'";
         }
-        if (!empty($_GET['end'])) {
-            $where[] = 'p.due_date<=?';
-            $params[] = $_GET['end'];
-        }
+        append_account_date_filters($where, $params, 'p.created_at', 'issue_start', 'issue_end', true);
+        append_account_date_filters($where, $params, 'p.payment_date', 'settlement_start', 'settlement_end');
+        append_account_date_filters($where, $params, 'p.due_date', 'due_start', 'due_end');
 
         $perPageOptions = [10, 25, 50, 100];
         $perPage = (int) ($_GET['per_page'] ?? 10);

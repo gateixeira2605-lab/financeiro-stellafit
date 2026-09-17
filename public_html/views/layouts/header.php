@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=e($pageTitle)?> · <?=e(config('app_name'))?></title>
 <script>if(localStorage.theme==='dark'||(!('theme'in localStorage)&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');if(localStorage.sidebar==='collapsed')document.documentElement.classList.add('sidebar-collapsed')</script>
 <script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={darkMode:'class'}</script>
-<link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"><script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"><link rel="stylesheet" href="<?=e(asset('css/financial-filters.css'))?>"><script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 </head><body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
 <div id="backdrop" class="fixed inset-0 z-30 hidden bg-black/40 lg:hidden"></div>
 <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full border-r border-slate-200 bg-white p-4 transition-transform dark:border-slate-800 dark:bg-slate-900 lg:translate-x-0">

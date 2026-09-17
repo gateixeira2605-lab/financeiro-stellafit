@@ -9,6 +9,12 @@ sidebarCollapseBtn?.addEventListener('click',()=>{document.documentElement.class
 syncSidebarState();
 document.getElementById('themeBtn')?.addEventListener('click',()=>{document.documentElement.classList.toggle('dark');localStorage.theme=document.documentElement.classList.contains('dark')?'dark':'light'});
 document.querySelectorAll('[data-confirm]').forEach(form=>form.addEventListener('submit',e=>{if(!confirm(form.dataset.confirm))e.preventDefault()}));
+document.querySelectorAll('[data-filter-toggle]').forEach(button=>button.addEventListener('click',()=>{
+  const panel=document.getElementById(button.dataset.filterToggle);
+  if(!panel)return;
+  panel.classList.toggle('hidden');
+  button.setAttribute('aria-expanded',String(!panel.classList.contains('hidden')));
+}));
 setTimeout(()=>document.querySelectorAll('.flash').forEach(el=>el.remove()),5000);
 
 document.querySelectorAll('[data-per-page]').forEach(select=>select.addEventListener('change',()=>{

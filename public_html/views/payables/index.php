@@ -1,19 +1,15 @@
 <div class="mb-4 flex justify-end"><button id="newPayableBtn" type="button" class="btn btn-primary"><i data-lucide="plus"></i>Nova despesa</button></div>
 
-<form class="card mb-5 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-9">
-  <input type="hidden" name="route" value="payables">
-  <input type="hidden" name="per_page" value="<?=$pagination['per_page']?>">
-  <div class="relative sm:col-span-2 xl:col-span-2"><i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i><input class="field !pl-10" type="search" name="q" value="<?=e($search)?>" maxlength="100" aria-label="Pesquisar contas a pagar" placeholder="Pesquisar descrição, fornecedor, CPF/CNPJ, categoria ou observação"></div>
-  <select class="field" name="status"><option value="">Status</option><?php foreach (['pendente' => 'Pendente', 'vencido' => 'Vencido', 'parcial' => 'Parcial', 'pago' => 'Pago', 'cancelado' => 'Cancelado'] as $v => $l): ?><option value="<?=$v?>" <?=($_GET['status'] ?? '') === $v ? 'selected' : ''?>><?=$l?></option><?php endforeach; ?></select>
-  <select class="field" name="category"><option value="">Categoria</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>" <?=($_GET['category'] ?? '') == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?></select>
-  <select class="field" name="contact"><option value="">Fornecedor</option><?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>" <?=($_GET['contact'] ?? '') == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?></select>
-  <select class="field" name="payment_method"><option value="">Forma</option><?php foreach (['pix' => 'Pix', 'boleto' => 'Boleto', 'cartao' => 'Cartão', 'dinheiro' => 'Dinheiro', 'debito_automatico' => 'Débito automático', 'transferencia' => 'Transferência'] as $v => $l): ?><option value="<?=$v?>" <?=($_GET['payment_method'] ?? '') === $v ? 'selected' : ''?>><?=$l?></option><?php endforeach; ?></select>
-  <input class="field" type="date" name="start" value="<?=e($_GET['start'] ?? '')?>">
-  <input class="field" type="date" name="end" value="<?=e($_GET['end'] ?? '')?>">
-  <button class="btn btn-light"><i data-lucide="list-filter"></i>Filtrar</button>
-</form>
-
-<?php $listRoute = 'payables'; require __DIR__ . '/../financial_list_summary.php'; ?>
+<?php
+$listRoute = 'payables';
+$settledFilterLabel = 'Pago';
+$settlementDateLabel = 'Data de pagamento';
+$partyLabel = 'Fornecedor';
+$methodLabel = 'Forma de pagamento';
+$detailedStatuses = ['pendente' => 'Pendente', 'vencido' => 'Vencido', 'parcial' => 'Parcial', 'pago' => 'Pago', 'cancelado' => 'Cancelado'];
+$filterMethods = ['pix' => 'Pix', 'boleto' => 'Boleto', 'cartao' => 'Cartão', 'dinheiro' => 'Dinheiro', 'debito_automatico' => 'Débito automático', 'transferencia' => 'Transferência'];
+require __DIR__ . '/../financial_list_filters.php';
+?>
 
 <div data-bulk-selection>
 <div class="card mb-3 flex flex-wrap items-center gap-2 p-3">
@@ -64,6 +60,8 @@
   </table>
 </div>
 </div>
+
+<?php require __DIR__ . '/../financial_list_summary.php'; ?>
 
 <dialog id="payableFormDialog" class="w-[calc(100%-2rem)] max-w-3xl rounded-2xl bg-white p-0 text-slate-800 shadow-2xl backdrop:bg-slate-950/60 dark:bg-slate-900 dark:text-white">
   <form id="payableModalForm" method="post" enctype="multipart/form-data" action="<?=url('payables/save')?>" class="flex max-h-[90vh] flex-col"><?=csrf_field()?>
