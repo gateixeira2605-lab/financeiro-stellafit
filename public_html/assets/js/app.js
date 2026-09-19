@@ -15,6 +15,155 @@ document.querySelectorAll('[data-filter-toggle]').forEach(button=>button.addEven
   panel.classList.toggle('hidden');
   button.setAttribute('aria-expanded',String(!panel.classList.contains('hidden')));
 }));
+
+document.querySelectorAll('[data-auto-filter-form]').forEach(form=>{
+  let submitting=false,searchTimer=null;
+  const feedback=form.querySelector('[data-filter-feedback]');
+  const closeDateFilters=except=>form.querySelectorAll('[data-date-filter]').forEach(filter=>{
+    if(filter===except)return;
+    filter.querySelector('[data-date-popover]')?.classList.add('hidden');
+    filter.querySelector('[data-date-trigger]')?.setAttribute('aria-expanded','false');
+  });
+  const setLoading=()=>{
+    submitting=true;
+    form.classList.add('is-loading');
+    form.setAttribute('aria-busy','true');
+    if(feedback)feedback.textContent='Atualizando resultados…';
+    closeDateFilters();
+  };
+  const submitFilters=()=>{
+    if(submitting||!form.reportValidity())return;
+    if(typeof form.requestSubmit==='function')form.requestSubmit();
+    else{setLoading();form.submit();}
+  };
+  form.addEventListener('submit',event=>{
+    if(submitting){event.preventDefault();return;}
+    if(searchTimer)clearTimeout(searchTimer);
+    setLoading();
+  });
+
+  form.querySelectorAll('[data-auto-submit]').forEach(field=>field.addEventListener('change',()=>{
+    if(field.type==='radio'){
+      const detailedStatus=form.querySelector('select[name="status"]');
+      if(detailedStatus)detailedStatus.value='';
+      form.querySelectorAll('.financial-status-option').forEach(option=>option.classList.toggle('is-active',option.contains(field)));
+    }else if(field.name==='status'){
+      const allView=form.querySelector('input[name="view"][value="all"]');
+      if(allView)allView.checked=true;
+      form.querySelectorAll('.financial-status-option').forEach(option=>option.classList.toggle('is-active',option.contains(allView)));
+    }
+    submitFilters();
+  }));
+
+  const search=form.querySelector('[data-auto-search]');
+  if(search){
+    let appliedSearch=search.value.trim();
+    search.addEventListener('input',()=>{
+      if(searchTimer)clearTimeout(searchTimer);
+      const nextSearch=search.value.trim();
+      if(nextSearch===appliedSearch)return;
+      searchTimer=setTimeout(()=>{appliedSearch=nextSearch;submitFilters();},650);
+    });
+  }
+
+  const pad=value=>String(value).padStart(2,'0');
+  const toIso=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
+  const shifted=(date,days)=>{const result=new Date(date);result.setDate(result.getDate()+days);return result;};
+  const dateRange=preset=>{
+    const today=new Date();today.setHours(0,0,0,0);
+    if(preset==='any')return ['',''];
+    if(preset==='today'){const value=toIso(today);return [value,value];}
+    if(preset==='week'){
+      const monday=shifted(today,-((today.getDay()+6)%7));
+      return [toIso(monday),toIso(shifted(monday,6))];
+    }
+    if(preset==='month')return [toIso(new Date(today.getFullYear(),today.getMonth(),1)),toIso(new Date(today.getFullYear(),today.getMonth()+1,0))];
+    if(preset==='previous-month')return [toIso(new Date(today.getFullYear(),today.getMonth()-1,1)),toIso(new Date(today.getFullYear(),today.getMonth(),0))];
+    if(preset==='next-30')return [toIso(today),toIso(shifted(today,29))];
+    return null;
+  };
+  const displayDate=value=>value?value.split('-').reverse().join('/'):'';
+  const shortDate=value=>{const [year,month,day]=value.split('-');return `${day}/${month}/${year.slice(-2)}`;};
+  const rangeSummary=(start,end)=>{
+    if(!start&&!end)return 'Qualquer data';
+    if(start&&start===end)return displayDate(start);
+    if(start&&end)return `${shortDate(start)} a ${shortDate(end)}`;
+    if(start)return `A partir de ${shortDate(start)}`;
+    return `Até ${shortDate(end)}`;
+  };
+
+  form.querySelectorAll('[data-date-filter]').forEach(filter=>{
+    const trigger=filter.querySelector('[data-date-trigger]');
+    const popover=filter.querySelector('[data-date-popover]');
+    const start=filter.querySelector('[data-date-start]');
+    const end=filter.querySelector('[data-date-end]');
+    const summary=filter.querySelector('[data-date-summary]');
+    const customRange=filter.querySelector('[data-custom-range]');
+    const customToggle=filter.querySelector('[data-date-preset="custom"]');
+    let customStartedEmpty=false;
+    const presetButtons=[...filter.querySelectorAll('[data-date-preset]:not([data-date-preset="custom"])')];
+    const matchingPreset=()=>presetButtons.find(button=>{
+      const range=dateRange(button.dataset.datePreset);
+      return range&&start.value===range[0]&&end.value===range[1];
+    });
+    const refreshDateState=()=>{
+      const matched=matchingPreset();
+      presetButtons.forEach(button=>button.classList.toggle('is-active',button===matched));
+      const customActive=!matched&&(start.value!==''||end.value!=='');
+      customToggle?.classList.toggle('is-active',customActive);
+      filter.classList.toggle('is-active',start.value!==''||end.value!=='');
+      if(summary)summary.textContent=rangeSummary(start.value,end.value);
+      return matched;
+    };
+    const showCustomRange=show=>{
+      customRange?.classList.toggle('hidden',!show);
+      customToggle?.classList.toggle('is-open',show);
+      customToggle?.setAttribute('aria-expanded',String(show));
+    };
+    const initialMatch=refreshDateState();
+    showCustomRange(!initialMatch&&(start.value!==''||end.value!==''));
+
+    trigger?.addEventListener('click',event=>{
+      event.stopPropagation();
+      const opening=popover.classList.contains('hidden');
+      closeDateFilters(filter);
+      popover.classList.toggle('hidden',!opening);
+      trigger.setAttribute('aria-expanded',String(opening));
+    });
+    popover?.addEventListener('click',event=>event.stopPropagation());
+    presetButtons.forEach(button=>button.addEventListener('click',()=>{
+      const [from,to]=dateRange(button.dataset.datePreset);
+      start.value=from;end.value=to;
+      refreshDateState();
+      submitFilters();
+    }));
+    customToggle?.addEventListener('click',()=>{
+      const opening=customRange.classList.contains('hidden');
+      showCustomRange(opening);
+      customStartedEmpty=opening&&!start.value&&!end.value;
+      if(opening)start.focus();
+    });
+    [start,end].forEach(input=>input?.addEventListener('change',()=>{
+      start.setCustomValidity('');end.setCustomValidity('');
+      refreshDateState();
+      if(customStartedEmpty&&start.value&&end.value){customStartedEmpty=false;filter.querySelector('[data-date-apply]')?.click();}
+    }));
+    filter.querySelector('[data-date-clear]')?.addEventListener('click',()=>{
+      start.value='';end.value='';
+      refreshDateState();
+      submitFilters();
+    });
+    filter.querySelector('[data-date-apply]')?.addEventListener('click',()=>{
+      start.setCustomValidity('');end.setCustomValidity('');
+      if(start.value&&end.value&&start.value>end.value){end.setCustomValidity('A data final deve ser igual ou posterior à data inicial.');end.reportValidity();return;}
+      if(!start.value&&!end.value){submitFilters();return;}
+      submitFilters();
+    });
+  });
+
+  document.addEventListener('click',()=>closeDateFilters());
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')closeDateFilters()});
+});
 setTimeout(()=>document.querySelectorAll('.flash').forEach(el=>el.remove()),5000);
 
 document.querySelectorAll('[data-per-page]').forEach(select=>select.addEventListener('change',()=>{

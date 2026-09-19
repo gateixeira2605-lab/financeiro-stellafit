@@ -12,3 +12,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate PHP syntax
         run: find public_html -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Validate JavaScript syntax
+        run: node --check public_html/assets/js/app.js
