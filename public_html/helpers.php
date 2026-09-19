@@ -247,11 +247,10 @@ function status_badge(string $status, string $dueDate = ''): array
 {
     $today = date('Y-m-d');
     if ($status === 'cancelado') return ['Cancelado', 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'];
-    if (in_array($status, ['pago', 'recebido'], true)) return ['Concluído', 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200'];
-    if ($status === 'parcial') return ['Parcial', 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'];
-    if ($dueDate < $today) return ['Vencido', 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'];
-    if ($dueDate === $today) return ['Vence hoje', 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'];
-    return ['Pendente', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'];
+    if ($status === 'pago') return ['Pago', 'bg-emerald-500 text-white shadow-sm'];
+    if ($status === 'recebido') return ['Recebido', 'bg-emerald-500 text-white shadow-sm'];
+    if ($status === 'vencido' || ($dueDate !== '' && $dueDate < $today)) return ['Vencido', 'bg-red-500 text-white shadow-sm'];
+    return ['Em aberto', 'bg-blue-500 text-white shadow-sm'];
 }
 
 function sync_overdue_statuses(): void

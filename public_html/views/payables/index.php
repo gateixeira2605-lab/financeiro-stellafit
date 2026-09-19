@@ -2,6 +2,7 @@
 
 <?php
 $listRoute = 'payables';
+$defaultView = 'open';
 $settledFilterLabel = 'Pago';
 $settlementDateLabel = 'Data de pagamento';
 $partyLabel = 'Fornecedor';

@@ -27,8 +27,8 @@ final class PayableController extends BaseController
             $where[] = 'p.status=?';
             $params[] = $status;
         } else {
-            $view = (string) ($_GET['view'] ?? 'all');
-            if ($view === 'open') $where[] = "p.status NOT IN ('pago','cancelado')";
+            $view = (string) ($_GET['view'] ?? 'open');
+            if ($view === 'open') $where[] = "p.status NOT IN ('pago','cancelado') AND p.due_date>=CURDATE()";
             elseif ($view === 'settled') $where[] = "p.status='pago'";
             elseif ($view === 'overdue') $where[] = "p.status NOT IN ('pago','cancelado') AND p.due_date<CURDATE()";
             else $where[] = "p.status<>'cancelado'";

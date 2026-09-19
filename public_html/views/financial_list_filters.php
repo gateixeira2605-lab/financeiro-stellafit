@@ -1,6 +1,8 @@
 <?php
-$currentView = (string) ($_GET['view'] ?? 'all');
+$defaultView = $defaultView ?? 'all';
+$currentView = (string) ($_GET['view'] ?? $defaultView);
 if (!in_array($currentView, ['all', 'open', 'settled', 'overdue'], true)) $currentView = 'all';
+if (trim((string) ($_GET['status'] ?? '')) !== '') $currentView = 'all';
 
 $advancedFilterKeys = ['q', 'status', 'category', 'contact', 'payment_method'];
 $hasAdvancedFilters = false;

@@ -27,7 +27,7 @@ final class ReceivableController extends BaseController
             $params[] = $status;
         } else {
             $view = (string) ($_GET['view'] ?? 'all');
-            if ($view === 'open') $where[] = "r.status NOT IN ('recebido','cancelado')";
+            if ($view === 'open') $where[] = "r.status NOT IN ('recebido','cancelado') AND r.due_date>=CURDATE()";
             elseif ($view === 'settled') $where[] = "r.status='recebido'";
             elseif ($view === 'overdue') $where[] = "r.status NOT IN ('recebido','cancelado') AND r.due_date<CURDATE()";
             else $where[] = "r.status<>'cancelado'";

@@ -3,12 +3,12 @@
     <p class="text-sm text-slate-500">Total de títulos</p>
     <p class="mt-1 text-2xl font-bold"><?=money($totals['total_amount'])?></p>
   </article>
-  <article class="card p-4 text-right">
-    <p class="text-sm text-slate-500"><?=e($totals['paid_label'])?></p>
-    <p class="mt-1 text-2xl font-bold text-teal-600"><?=money($totals['paid_amount'])?></p>
+  <article class="rounded-2xl bg-emerald-500 p-4 text-right text-white shadow-sm">
+    <p class="text-sm text-emerald-50"><?=e($totals['paid_label'])?></p>
+    <p class="mt-1 text-2xl font-bold"><?=money($totals['paid_amount'])?></p>
   </article>
-  <article class="rounded-2xl bg-rose-500 p-4 text-right text-white shadow-sm">
-    <p class="text-sm text-rose-50">Total em aberto</p>
+  <article class="rounded-2xl bg-red-500 p-4 text-right text-white shadow-sm">
+    <p class="text-sm text-red-50">Total em aberto</p>
     <p class="mt-1 text-2xl font-bold"><?=money($totals['open_amount'])?></p>
   </article>
 </section>
