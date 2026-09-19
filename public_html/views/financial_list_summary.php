@@ -1,4 +1,4 @@
-<section class="mb-4 grid gap-3 md:grid-cols-3" aria-label="Resumo dos lançamentos filtrados">
+<section class="mb-4 mt-4 grid gap-3 md:grid-cols-3" aria-label="Resumo dos lançamentos filtrados">
   <article class="card p-4 text-right">
     <p class="text-sm text-slate-500">Total de títulos</p>
     <p class="mt-1 text-2xl font-bold"><?=money($totals['total_amount'])?></p>
