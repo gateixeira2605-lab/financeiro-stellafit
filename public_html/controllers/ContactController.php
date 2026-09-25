@@ -139,6 +139,80 @@ final class ContactController extends BaseController
         redirect('contacts');
     }
 
+    public function bulkDelete(): void
+    {
+        verify_csrf();
+        $ids = $this->selectedContactIds();
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $contactStatement = $pdo->prepare(
+                'SELECT id FROM contacts WHERE id IN (' . $this->placeholders($ids) . ') FOR UPDATE'
+            );
+            $contactStatement->execute($ids);
+            $existingIds = array_map('intval', $contactStatement->fetchAll(PDO::FETCH_COLUMN));
+            if (!$existingIds) throw new InvalidArgumentException('Nenhum contato selecionado foi encontrado.');
+
+            $placeholders = $this->placeholders($existingIds);
+            $usedStatement = $pdo->prepare(
+                'SELECT contact_id FROM payables WHERE contact_id IN (' . $placeholders . ')
+                 UNION
+                 SELECT contact_id FROM receivables WHERE contact_id IN (' . $placeholders . ')'
+            );
+            $usedStatement->execute(array_merge($existingIds, $existingIds));
+            $usedIds = array_map('intval', $usedStatement->fetchAll(PDO::FETCH_COLUMN));
+            $deletableIds = array_values(array_diff($existingIds, $usedIds));
+
+            $deleted = 0;
+            if ($deletableIds) {
+                $deleteStatement = $pdo->prepare(
+                    'DELETE FROM contacts WHERE id IN (' . $this->placeholders($deletableIds) . ')'
+                );
+                $deleteStatement->execute($deletableIds);
+                $deleted = $deleteStatement->rowCount();
+            }
+            $protected = count($existingIds) - $deleted;
+            $pdo->commit();
+
+            if ($deleted > 0 && $protected > 0) {
+                flash('success', $deleted . ' contato(s) excluído(s). ' . $protected . ' contato(s) em uso foram preservados.');
+            } elseif ($deleted > 0) {
+                flash('success', $deleted . ' contato(s) excluído(s).');
+            } else {
+                flash('error', 'Nenhum contato foi excluído porque todos estão vinculados a contas.');
+            }
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        redirect('contacts');
+    }
+
+    private function selectedContactIds(): array
+    {
+        if (isset($_POST['ids_json'])) {
+            $values = json_decode((string) $_POST['ids_json'], true);
+            if (!is_array($values)) throw new InvalidArgumentException('Seleção de contatos inválida.');
+        } else {
+            $values = $_POST['ids'] ?? [];
+        }
+        if (!is_array($values)) throw new InvalidArgumentException('Seleção de contatos inválida.');
+        $ids = [];
+        foreach ($values as $value) {
+            $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($id !== false) $ids[(int) $id] = (int) $id;
+        }
+        $ids = array_values($ids);
+        if (!$ids) throw new InvalidArgumentException('Selecione pelo menos um contato.');
+        if (count($ids) > 5000) throw new InvalidArgumentException('Selecione no máximo 5.000 contatos por operação.');
+        return $ids;
+    }
+
+    private function placeholders(array $values): string
+    {
+        return implode(',', array_fill(0, count($values), '?'));
+    }
+
     private function filteredContacts(string $q, string $type): array
     {
         $sql = 'SELECT * FROM contacts WHERE name LIKE ?';

@@ -43,6 +43,7 @@ try {
         'contacts/form' => [ContactController::class, 'form'],
         'contacts/save' => [ContactController::class, 'save'],
         'contacts/delete' => [ContactController::class, 'delete'],
+        'contacts/bulk-delete' => [ContactController::class, 'bulkDelete'],
         'payables' => [PayableController::class, 'index'],
         'payables/form' => [PayableController::class, 'form'],
         'payables/save' => [PayableController::class, 'save'],

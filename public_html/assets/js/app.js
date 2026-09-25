@@ -221,7 +221,11 @@ document.querySelectorAll('[data-bulk-selection]').forEach(scope=>{
     if(!dialog||!form)return;
     form.reset();
     const holder=form.querySelector('[data-bulk-ids]');
-    holder.replaceChildren(...ids.map(id=>{const input=document.createElement('input');input.type='hidden';input.name='ids[]';input.value=id;return input;}));
+    if(scope.hasAttribute('data-bulk-json')){
+      const input=document.createElement('input');input.type='hidden';input.name='ids_json';input.value=JSON.stringify(ids);holder.replaceChildren(input);
+    }else{
+      holder.replaceChildren(...ids.map(id=>{const input=document.createElement('input');input.type='hidden';input.name='ids[]';input.value=id;return input;}));
+    }
     dialog.querySelectorAll('[data-bulk-dialog-count]').forEach(element=>element.textContent=String(ids.length));
     dialog.showModal();
   }));
