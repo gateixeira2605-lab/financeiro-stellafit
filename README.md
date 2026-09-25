@@ -25,6 +25,10 @@ Instalações novas que usam o `schema.sql` já incluem os campos necessários.
 
 Se instalar em uma subpasta, preencha `base_url` no `config.php`, por exemplo `/financeiro`.
 
+## Importação e exportação de contatos
+
+Na tela de Contatos, é possível exportar os registros para CSV e importar contatos de outro sistema. A importação reconhece arquivos separados por ponto e vírgula, vírgula ou tabulação, valida cada linha e permite ignorar ou atualizar registros repetidos por CPF/CNPJ ou e-mail.
+
 ## Requisitos
 
 - PHP 8.1 ou superior com extensões PDO MySQL, Fileinfo e Mbstring
