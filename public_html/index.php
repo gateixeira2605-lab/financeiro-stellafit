@@ -44,6 +44,7 @@ try {
         'contacts/template' => [ContactController::class, 'template'],
         'contacts/form' => [ContactController::class, 'form'],
         'contacts/save' => [ContactController::class, 'save'],
+        'contacts/quick-create' => [ContactController::class, 'quickCreate'],
         'contacts/delete' => [ContactController::class, 'delete'],
         'contacts/bulk-delete' => [ContactController::class, 'bulkDelete'],
         'settings' => [SettingsController::class, 'index'],

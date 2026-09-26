@@ -63,8 +63,22 @@ require __DIR__ . '/../financial_list_filters.php';
     <div class="grid gap-4 overflow-y-auto p-5 sm:grid-cols-2">
       <input id="rfId" type="hidden" name="id">
       <label class="sm:col-span-2"><span class="label">Descrição</span><input id="rfDescription" class="field" name="description" required></label>
-      <label><span class="label">Cliente</span><select id="rfContact" class="field" name="contact_id"><option value="">Selecione</option><?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></label>
-      <label><span class="label">Categoria</span><select id="rfCategory" class="field" name="category_id"><option value="">Selecione</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></label>
+      <div class="sm:col-span-2" data-quick-contact data-endpoint="<?=url('contacts/quick-create')?>" data-contact-type="cliente" data-success-label="Cliente">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><div class="flex items-center justify-between gap-2"><label class="label" for="rfContact">Cliente</label><button type="button" class="text-xs font-semibold text-teal-600 hover:text-teal-700" data-quick-contact-toggle aria-expanded="false"><span aria-hidden="true">+</span> Novo cliente</button></div><select id="rfContact" class="field" name="contact_id" data-quick-contact-select><option value="">Selecione</option><?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></div>
+          <label><span class="label">Categoria</span><select id="rfCategory" class="field" name="category_id"><option value="">Selecione</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></label>
+        </div>
+        <div class="mt-3 hidden rounded-xl border border-teal-200 bg-teal-50/70 p-4 dark:border-teal-800 dark:bg-teal-950/30" data-quick-contact-panel>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label><span class="label">Nome do cliente *</span><input class="field" maxlength="160" data-quick-contact-field="name"></label>
+            <label><span class="label">CPF/CNPJ</span><input class="field" maxlength="20" data-quick-contact-field="document"></label>
+            <label><span class="label">Telefone</span><input class="field" maxlength="30" data-quick-contact-field="phone"></label>
+            <label><span class="label">E-mail</span><input class="field" type="email" maxlength="160" data-quick-contact-field="email"></label>
+          </div>
+          <div class="mt-3 flex justify-end gap-2"><button type="button" class="btn btn-light !px-3 !py-2" data-quick-contact-cancel>Cancelar</button><button type="button" class="btn btn-primary !px-3 !py-2" data-quick-contact-save>Salvar cliente</button></div>
+        </div>
+        <p class="mt-2 hidden text-xs font-medium" data-quick-contact-feedback aria-live="polite"></p>
+      </div>
       <label><span class="label">Valor esperado</span><input id="rfAmount" class="field" name="expected_amount" inputmode="decimal" placeholder="0,00" required></label>
       <label><span class="label">Vencimento</span><input id="rfDue" class="field" type="date" name="due_date" value="<?=date('Y-m-d')?>" required></label>
       <label><span class="label">Forma de recebimento</span><select id="rfMethod" class="field" name="receipt_method"><?php foreach (['pix' => 'Pix', 'cartao_credito' => 'Cartão crédito', 'cartao_debito' => 'Cartão débito', 'boleto' => 'Boleto', 'dinheiro' => 'Dinheiro', 'transferencia' => 'Transferência'] as $v => $l): ?><option value="<?=$v?>"><?=$l?></option><?php endforeach; ?></select></label>

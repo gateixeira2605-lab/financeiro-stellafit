@@ -199,6 +199,58 @@ window.addEventListener('scroll',()=>closeActionMenus(),true);
 document.querySelectorAll('[data-modal-close]').forEach(button=>button.addEventListener('click',()=>document.getElementById(button.dataset.modalClose)?.close()));
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()}));
 
+document.querySelectorAll('[data-quick-contact]').forEach(scope=>{
+  const form=scope.closest('form');
+  const select=scope.querySelector('[data-quick-contact-select]');
+  const panel=scope.querySelector('[data-quick-contact-panel]');
+  const toggle=scope.querySelector('[data-quick-contact-toggle]');
+  const save=scope.querySelector('[data-quick-contact-save]');
+  const cancel=scope.querySelector('[data-quick-contact-cancel]');
+  const feedback=scope.querySelector('[data-quick-contact-feedback]');
+  const fields=Object.fromEntries([...scope.querySelectorAll('[data-quick-contact-field]')].map(field=>[field.dataset.quickContactField,field]));
+  const setFeedback=(message,type='error')=>{
+    feedback.textContent=message;
+    feedback.classList.toggle('hidden',message==='');
+    feedback.classList.toggle('text-red-600',type==='error');
+    feedback.classList.toggle('text-emerald-600',type==='success');
+  };
+  const closePanel=(clear=true)=>{
+    panel.classList.add('hidden');
+    toggle.setAttribute('aria-expanded','false');
+    if(clear)Object.values(fields).forEach(field=>{field.value=''});
+  };
+  toggle.addEventListener('click',()=>{
+    const opening=panel.classList.contains('hidden');
+    panel.classList.toggle('hidden',!opening);
+    toggle.setAttribute('aria-expanded',String(opening));
+    setFeedback('');
+    if(opening)fields.name?.focus();
+  });
+  cancel.addEventListener('click',()=>{closePanel();setFeedback('')});
+  form?.addEventListener('reset',()=>{closePanel();setFeedback('')});
+  save.addEventListener('click',async()=>{
+    const name=fields.name?.value.trim()||'';
+    if(!name){setFeedback('Informe o nome do contato.');fields.name?.focus();return;}
+    const body=new FormData();
+    body.set('csrf',form?.querySelector('input[name="csrf"]')?.value||'');
+    body.set('type',scope.dataset.contactType||'');
+    Object.entries(fields).forEach(([key,field])=>body.set(key,field.value.trim()));
+    save.disabled=true;
+    setFeedback('Salvando...','success');
+    try{
+      const response=await fetch(scope.dataset.endpoint,{method:'POST',headers:{Accept:'application/json'},body});
+      let data=null;
+      try{data=JSON.parse(await response.text())}catch{}
+      if(!response.ok||!data?.ok)throw new Error(data?.error||'Não foi possível salvar o contato. Atualize a página e tente novamente.');
+      const option=new Option(data.contact.name,String(data.contact.id),true,true);
+      select.add(option);
+      closePanel();
+      setFeedback(`${scope.dataset.successLabel||'Contato'} criado e selecionado.`,'success');
+    }catch(error){setFeedback(error.message||'Não foi possível salvar o contato.');}
+    finally{save.disabled=false;}
+  });
+});
+
 document.querySelectorAll('[data-bulk-selection]').forEach(scope=>{
   const selectAll=scope.querySelector('[data-select-all]');
   const items=[...scope.querySelectorAll('[data-select-item]')];

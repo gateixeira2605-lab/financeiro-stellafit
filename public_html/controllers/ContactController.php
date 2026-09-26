@@ -131,6 +131,47 @@ final class ContactController extends BaseController
         $stmt->execute($values); flash('success','Contato salvo.'); redirect('contacts');
     }
 
+    public function quickCreate(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            if (!is_post()) {
+                http_response_code(405);
+                throw new InvalidArgumentException('Método não permitido.');
+            }
+            verify_csrf();
+
+            $name = trim((string) ($_POST['name'] ?? ''));
+            $document = trim((string) ($_POST['document'] ?? ''));
+            $phone = trim((string) ($_POST['phone'] ?? ''));
+            $email = trim((string) ($_POST['email'] ?? ''));
+            $type = (string) ($_POST['type'] ?? '');
+
+            if ($name === '' || !in_array($type, ['fornecedor', 'cliente'], true)) {
+                throw new InvalidArgumentException('Informe o nome do contato.');
+            }
+            if (mb_strlen($name) > 160 || mb_strlen($document) > 20 || mb_strlen($phone) > 30 || mb_strlen($email) > 160) {
+                throw new InvalidArgumentException('Um dos campos ultrapassa o tamanho permitido.');
+            }
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                throw new InvalidArgumentException('Informe um e-mail válido.');
+            }
+
+            $statement = db()->prepare('INSERT INTO contacts (name,document,phone,email,type,notes) VALUES (?,?,?,?,?,NULL)');
+            $statement->execute([$name, $document, $phone, $email, $type]);
+            $contact = ['id' => (int) db()->lastInsertId(), 'name' => $name, 'type' => $type];
+            echo json_encode(['ok' => true, 'contact' => $contact], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } catch (InvalidArgumentException $exception) {
+            if (http_response_code() < 400) http_response_code(422);
+            echo json_encode(['ok' => false, 'error' => $exception->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } catch (Throwable $exception) {
+            error_log('Falha no cadastro rápido de contato: ' . $exception->getMessage());
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'error' => 'Não foi possível salvar o contato. Tente novamente.'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        exit;
+    }
+
     public function delete(): void
     {
         verify_csrf();
