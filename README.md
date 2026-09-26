@@ -29,6 +29,10 @@ Se instalar em uma subpasta, preencha `base_url` no `config.php`, por exemplo `/
 
 Na tela de Contatos, é possível exportar os registros para CSV e importar contatos de outro sistema. A importação reconhece arquivos separados por ponto e vírgula, vírgula ou tabulação, valida cada linha e permite ignorar ou atualizar registros repetidos por CPF/CNPJ ou e-mail.
 
+## Personalização visual
+
+Na opção **Personalização** do menu lateral, o nome e o logotipo da empresa podem ser alterados pelo próprio sistema. A identidade é armazenada no banco de dados para permanecer disponível após novos deploys. O logotipo aceita JPG, PNG ou WEBP de até 2 MB.
+
 ## Requisitos
 
 - PHP 8.1 ou superior com extensões PDO MySQL, Fileinfo e Mbstring

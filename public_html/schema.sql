@@ -156,7 +156,18 @@ CREATE TABLE schema_migrations (
   applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO schema_migrations (version) VALUES ('20260914_schema_alignment_v1'),('20260917_bank_accounts_v1');
+CREATE TABLE company_settings (
+  id TINYINT UNSIGNED PRIMARY KEY,
+  company_name VARCHAR(120) NOT NULL,
+  logo_data MEDIUMBLOB NULL,
+  logo_mime VARCHAR(50) NULL,
+  logo_updated_at DATETIME NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO schema_migrations (version) VALUES ('20260914_schema_alignment_v1'),('20260917_bank_accounts_v1'),('20260926_company_branding_v1');
+
+INSERT INTO company_settings (id,company_name) VALUES (1,'Minha Empresa');
 
 INSERT INTO users (name,username,password) VALUES ('Administrador','admin','{SHA256}240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9');
 

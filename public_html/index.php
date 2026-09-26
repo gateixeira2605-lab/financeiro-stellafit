@@ -19,12 +19,13 @@ spl_autoload_register(function (string $class): void {
 });
 
 $route = trim((string) ($_GET['route'] ?? 'dashboard'), '/');
-$publicRoutes = ['login'];
+$publicRoutes = ['login', 'settings/logo'];
 
 try {
     if (!in_array($route, $publicRoutes, true)) {
         require_auth();
         ensure_database_schema();
+        ensure_company_settings_schema(db(), (string) config('company_name', 'Minha Empresa'));
         sync_overdue_statuses();
     }
 
@@ -44,6 +45,9 @@ try {
         'contacts/save' => [ContactController::class, 'save'],
         'contacts/delete' => [ContactController::class, 'delete'],
         'contacts/bulk-delete' => [ContactController::class, 'bulkDelete'],
+        'settings' => [SettingsController::class, 'index'],
+        'settings/save' => [SettingsController::class, 'save'],
+        'settings/logo' => [SettingsController::class, 'logo'],
         'payables' => [PayableController::class, 'index'],
         'payables/form' => [PayableController::class, 'form'],
         'payables/save' => [PayableController::class, 'save'],

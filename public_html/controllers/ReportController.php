@@ -21,7 +21,7 @@ final class ReportController extends BaseController
         if($format!=='pdf')throw new InvalidArgumentException('Formato inválido.');
         $autoload=__DIR__.'/../vendor/autoload.php';if(!is_file($autoload))throw new RuntimeException('Dompdf não instalado. Execute composer install na pasta public_html.');require_once $autoload;
         $html='<style>body{font-family:DejaVu Sans;font-size:11px;color:#1e293b}h1{color:#0f766e}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #cbd5e1;text-align:left}th{background:#f1f5f9}</style>';
-        $html.='<h1>'.e(config('company_name')).'</h1><p>'.e(config('company_document')).' · '.e(config('company_address')).'</p><h2>'.e($title).'</h2><p>Período: '.br_date($start).' a '.br_date($end).'</p><table><thead><tr>';
+        $html.='<h1>'.e(company_branding()['company_name']).'</h1><p>'.e(config('company_document')).' · '.e(config('company_address')).'</p><h2>'.e($title).'</h2><p>Período: '.br_date($start).' a '.br_date($end).'</p><table><thead><tr>';
         foreach($columns as $label)$html.='<th>'.e($label).'</th>';$html.='</tr></thead><tbody>';
         foreach($rows as $row){$html.='<tr>';foreach($row as $value)$html.='<td>'.e($value).'</td>';$html.='</tr>';}$html.='</tbody></table>';
         $dompdf=new Dompdf\Dompdf(['isRemoteEnabled'=>false]);$dompdf->loadHtml($html,'UTF-8');$dompdf->setPaper('A4','landscape');$dompdf->render();$dompdf->stream('relatorio-'.$type.'-'.$date.'.pdf',['Attachment'=>true]);exit;

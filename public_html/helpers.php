@@ -178,6 +178,27 @@ function require_auth(): void
     if (empty($_SESSION['user_id'])) redirect('login');
 }
 
+function company_branding(): array
+{
+    static $branding = null;
+    if (is_array($branding)) return $branding;
+
+    $fallbackName = (string) config('company_name', 'Minha Empresa');
+    try {
+        $row = db()->query('SELECT company_name,logo_mime,logo_updated_at FROM company_settings WHERE id=1')->fetch();
+        if (!$row) return $branding = ['company_name' => $fallbackName, 'has_logo' => false, 'logo_url' => ''];
+        $hasLogo = !empty($row['logo_mime']);
+        $version = $row['logo_updated_at'] ? strtotime((string) $row['logo_updated_at']) : 0;
+        return $branding = [
+            'company_name' => (string) ($row['company_name'] ?: $fallbackName),
+            'has_logo' => $hasLogo,
+            'logo_url' => $hasLogo ? url('settings/logo') . '&v=' . $version : '',
+        ];
+    } catch (PDOException) {
+        return $branding = ['company_name' => $fallbackName, 'has_logo' => false, 'logo_url' => ''];
+    }
+}
+
 function is_post(): bool
 {
     return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';

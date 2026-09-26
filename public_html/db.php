@@ -232,6 +232,35 @@ function ensure_bank_accounts_schema(PDO $pdo): void
     }
 }
 
+function ensure_company_settings_schema(PDO $pdo, string $defaultCompanyName): void
+{
+    $version = '20260926_company_branding_v1';
+    if (schema_table_exists($pdo, 'schema_migrations') && schema_version_exists($pdo, $version)) return;
+
+    $lockAcquired = (int) $pdo->query("SELECT GET_LOCK('financontrol_company_settings_migration', 15)")->fetchColumn() === 1;
+    if (!$lockAcquired) throw new RuntimeException('As configurações da empresa estão sendo atualizadas. Aguarde alguns segundos e tente novamente.');
+
+    try {
+        if (schema_version_exists($pdo, $version)) return;
+        $pdo->exec("CREATE TABLE IF NOT EXISTS company_settings (
+            id TINYINT UNSIGNED PRIMARY KEY,
+            company_name VARCHAR(120) NOT NULL,
+            logo_data MEDIUMBLOB NULL,
+            logo_mime VARCHAR(50) NULL,
+            logo_updated_at DATETIME NULL,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $statement = $pdo->prepare('INSERT IGNORE INTO company_settings (id,company_name) VALUES (1,?)');
+        $statement->execute([$defaultCompanyName]);
+        $pdo->prepare('INSERT INTO schema_migrations (version) VALUES (?)')->execute([$version]);
+    } catch (Throwable $exception) {
+        error_log('Falha ao criar as configurações da empresa: ' . $exception->getMessage());
+        throw new RuntimeException('Não foi possível preparar a personalização da empresa.', 0, $exception);
+    } finally {
+        $pdo->query("SELECT RELEASE_LOCK('financontrol_company_settings_migration')");
+    }
+}
+
 function schema_table_exists(PDO $pdo, string $table): bool
 {
     $statement = $pdo->prepare(
