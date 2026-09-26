@@ -47,6 +47,14 @@
       </select>
     </label>
     <label>
+      <span class="label">Conta bancária prevista</span>
+      <select class="field" name="bank_account_id">
+        <option value="">Definir somente na baixa</option>
+        <?php foreach ($bankAccounts as $account): ?><option value="<?=$account['id']?>" <?=$item['bank_account_id'] == $account['id'] ? 'selected' : ''?>><?=e($account['name'])?> · <?=money($account['balance'])?></option><?php endforeach; ?>
+      </select>
+      <span class="mt-1 block text-xs text-slate-500">Será sugerida na baixa, mas poderá ser alterada.</span>
+    </label>
+    <label>
       <span class="label">Intervalo</span>
       <select id="payableRecurrence" class="field" name="recurrence">
         <?php if ($editing && $item['recurrence'] === 'nenhuma'): ?><option value="nenhuma" selected>Nenhum</option><?php endif; ?>

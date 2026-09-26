@@ -85,7 +85,7 @@ final class PayableController extends BaseController
     public function form(): void
     {
         $item = [
-            'id' => '', 'description' => '', 'contact_id' => '', 'category_id' => '', 'amount' => '',
+            'id' => '', 'description' => '', 'contact_id' => '', 'category_id' => '', 'bank_account_id' => '', 'amount' => '',
             'due_date' => date('Y-m-d'), 'payment_method' => 'pix', 'recurrence' => 'mensal', 'notes' => '',
             'series_id' => null, 'installment_number' => null, 'installment_count' => null, 'is_recurring' => 0,
         ];
@@ -96,7 +96,8 @@ final class PayableController extends BaseController
         }
         $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'despesa%' OR classification='investimento' ORDER BY name");
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('fornecedor','ambos') ORDER BY name");
-        $this->render('payables/form', compact('item', 'categories', 'contacts') + ['pageTitle' => $item['id'] ? 'Editar conta' : 'Nova conta a pagar']);
+        $bankAccounts = active_bank_accounts();
+        $this->render('payables/form', compact('item', 'categories', 'contacts', 'bankAccounts') + ['pageTitle' => $item['id'] ? 'Editar conta' : 'Nova conta a pagar']);
     }
 
     public function save(): void
@@ -110,6 +111,7 @@ final class PayableController extends BaseController
         $recurrence = (string) ($_POST['recurrence'] ?? 'mensal');
         $contactId = (int) ($_POST['contact_id'] ?? 0) ?: null;
         $categoryId = (int) ($_POST['category_id'] ?? 0) ?: null;
+        $bankAccountId = (int) ($_POST['bank_account_id'] ?? 0) ?: null;
         $notes = trim((string) ($_POST['notes'] ?? ''));
 
         if ($description === '' || $informedCents <= 0 || !is_valid_iso_date($due) || !in_array($method, $this->methods, true) || !in_array($recurrence, $this->recurrences, true)) {
@@ -119,6 +121,7 @@ final class PayableController extends BaseController
         $pdo = db();
         $pdo->beginTransaction();
         try {
+            if ($bankAccountId !== null) require_active_bank_account($pdo, $bankAccountId);
             if ($id) {
                 $currentStmt = $pdo->prepare('SELECT * FROM payables WHERE id=? FOR UPDATE');
                 $currentStmt->execute([$id]);
@@ -130,13 +133,14 @@ final class PayableController extends BaseController
                 $status = $current['status'] === 'cancelado'
                     ? 'cancelado'
                     : ($paidCents === $informedCents ? 'pago' : ($paidCents > 0 ? 'parcial' : ($due < date('Y-m-d') ? 'vencido' : 'pendente')));
-                $stmt = $pdo->prepare('UPDATE payables SET description=?,contact_id=?,category_id=?,amount=?,due_date=?,payment_method=?,status=?,recurrence=?,notes=? WHERE id=?');
-                $stmt->execute([$description, $contactId, $categoryId, cents_decimal($informedCents), $due, $method, $status, $recurrence, $notes, $id]);
+                $stmt = $pdo->prepare('UPDATE payables SET description=?,contact_id=?,category_id=?,bank_account_id=?,amount=?,due_date=?,payment_method=?,status=?,recurrence=?,notes=? WHERE id=?');
+                $stmt->execute([$description, $contactId, $categoryId, $bankAccountId, cents_decimal($informedCents), $due, $method, $status, $recurrence, $notes, $id]);
                 Attachment::store('payable', (int) $id, $_FILES['attachment'] ?? []);
                 audit_log('payable', (int) $id, 'updated', 'Dados da conta a pagar alterados.', changed_fields([
                     'Descrição' => [$current['description'], $description],
                     'Fornecedor' => [$current['contact_id'], $contactId],
                     'Categoria' => [$current['category_id'], $categoryId],
+                    'Conta prevista' => [$current['bank_account_id'], $bankAccountId],
                     'Valor' => [$current['amount'], cents_decimal($informedCents)],
                     'Vencimento' => [$current['due_date'], $due],
                     'Forma' => [$current['payment_method'], $method],
@@ -155,15 +159,15 @@ final class PayableController extends BaseController
                 $amounts = installment_amounts($informedCents, $installmentCount, $isRecurring);
                 $seriesId = bin2hex(random_bytes(16));
                 $stmt = $pdo->prepare("INSERT INTO payables
-                    (description,contact_id,category_id,amount,due_date,payment_method,status,recurrence,notes,series_id,installment_number,installment_count,is_recurring)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                    (description,contact_id,category_id,bank_account_id,amount,due_date,payment_method,status,recurrence,notes,series_id,installment_number,installment_count,is_recurring)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 $firstId = 0;
 
                 foreach ($amounts as $index => $amountCents) {
                     $installmentDue = installment_due_date($due, $recurrence, $index);
                     $status = $installmentDue < date('Y-m-d') ? 'vencido' : 'pendente';
                     $stmt->execute([
-                        $description, $contactId, $categoryId, cents_decimal($amountCents), $installmentDue, $method,
+                        $description, $contactId, $categoryId, $bankAccountId, cents_decimal($amountCents), $installmentDue, $method,
                         $status, $recurrence, $notes, $seriesId, $index + 1, $installmentCount, (int) $isRecurring,
                     ]);
                     $entityId = (int) $pdo->lastInsertId();
@@ -222,11 +226,11 @@ final class PayableController extends BaseController
             if ($status === 'pago' && $item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
                 $next = next_due_date($item['due_date'], $item['recurrence']);
                 $sql = "INSERT IGNORE INTO payables
-                    (description,contact_id,category_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
-                    VALUES (?,?,?,?,?,?,'pendente',?,?,?)";
+                    (description,contact_id,category_id,bank_account_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
+                    VALUES (?,?,?,?,?,?,?,'pendente',?,?,?)";
                 $legacyStmt = $pdo->prepare($sql);
                 $legacyStmt->execute([
-                    $item['description'], $item['contact_id'], $item['category_id'], $item['amount'], $next,
+                    $item['description'], $item['contact_id'], $item['category_id'], $item['bank_account_id'], $item['amount'], $next,
                     $item['payment_method'], $item['recurrence'], $item['notes'], $id,
                 ]);
                 if ($legacyStmt->rowCount()) audit_log('payable', (int) $pdo->lastInsertId(), 'created', 'Próxima ocorrência recorrente gerada após a quitação.');
@@ -261,8 +265,8 @@ final class PayableController extends BaseController
             $items = $statement->fetchAll();
             $update = $pdo->prepare("UPDATE payables SET paid_amount=amount,status='pago',payment_date=?,payment_method=?,is_scheduled=0 WHERE id=?");
             $legacy = $pdo->prepare("INSERT IGNORE INTO payables
-                (description,contact_id,category_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
-                VALUES (?,?,?,?,?,?,'pendente',?,?,?)");
+                (description,contact_id,category_id,bank_account_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
+                VALUES (?,?,?,?,?,?,?,'pendente',?,?,?)");
             $processed = 0;
 
             foreach ($items as $item) {
@@ -277,7 +281,7 @@ final class PayableController extends BaseController
 
                 if ($item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
                     $legacy->execute([
-                        $item['description'], $item['contact_id'], $item['category_id'], $item['amount'],
+                        $item['description'], $item['contact_id'], $item['category_id'], $item['bank_account_id'], $item['amount'],
                         next_due_date($item['due_date'], $item['recurrence']), $item['payment_method'],
                         $item['recurrence'], $item['notes'], $id,
                     ]);

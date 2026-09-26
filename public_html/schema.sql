@@ -36,6 +36,7 @@ CREATE TABLE payables (
   description VARCHAR(200) NOT NULL,
   contact_id INT UNSIGNED NULL,
   category_id INT UNSIGNED NULL,
+  bank_account_id INT UNSIGNED NULL,
   amount DECIMAL(10,2) NOT NULL,
   paid_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   remaining_amount DECIMAL(10,2) GENERATED ALWAYS AS (amount - paid_amount) STORED,
@@ -58,6 +59,7 @@ CREATE TABLE payables (
   CONSTRAINT fk_payable_parent FOREIGN KEY (recurrence_parent_id) REFERENCES payables(id) ON DELETE SET NULL,
   UNIQUE KEY uq_payable_recurrence_parent (recurrence_parent_id),
   INDEX idx_payable_series (series_id,installment_number),
+  INDEX idx_payable_bank (bank_account_id),
   INDEX idx_payable_due (due_date), INDEX idx_payable_status (status), INDEX idx_payable_due_status (due_date,status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -138,6 +140,9 @@ CREATE TABLE bank_balance_adjustments (
 ALTER TABLE financial_transactions
   ADD CONSTRAINT fk_transaction_bank FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL;
 
+ALTER TABLE payables
+  ADD CONSTRAINT fk_payable_bank FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL;
+
 CREATE TABLE audit_logs (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   entity_type ENUM('payable','receivable') NOT NULL,
@@ -165,7 +170,7 @@ CREATE TABLE company_settings (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO schema_migrations (version) VALUES ('20260914_schema_alignment_v1'),('20260917_bank_accounts_v1'),('20260926_company_branding_v1');
+INSERT INTO schema_migrations (version) VALUES ('20260914_schema_alignment_v1'),('20260917_bank_accounts_v1'),('20260926_company_branding_v1'),('20260926_payable_bank_preference_v1');
 
 INSERT INTO company_settings (id,company_name) VALUES (1,'Minha Empresa');
 

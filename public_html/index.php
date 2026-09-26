@@ -26,6 +26,7 @@ try {
         require_auth();
         ensure_database_schema();
         ensure_company_settings_schema(db(), (string) config('company_name', 'Minha Empresa'));
+        ensure_payable_bank_preference_schema(db());
         sync_overdue_statuses();
     }
 

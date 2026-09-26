@@ -261,6 +261,32 @@ function ensure_company_settings_schema(PDO $pdo, string $defaultCompanyName): v
     }
 }
 
+function ensure_payable_bank_preference_schema(PDO $pdo): void
+{
+    $version = '20260926_payable_bank_preference_v1';
+    if (schema_table_exists($pdo, 'schema_migrations') && schema_version_exists($pdo, $version)) return;
+
+    $lockAcquired = (int) $pdo->query("SELECT GET_LOCK('financontrol_payable_bank_preference_migration', 15)")->fetchColumn() === 1;
+    if (!$lockAcquired) throw new RuntimeException('As preferências bancárias estão sendo atualizadas. Aguarde alguns segundos e tente novamente.');
+
+    try {
+        if (schema_version_exists($pdo, $version)) return;
+        schema_add_column($pdo, 'payables', 'bank_account_id', 'INT UNSIGNED NULL AFTER category_id');
+        if (!schema_index_exists($pdo, 'payables', 'idx_payable_bank')) {
+            $pdo->exec('ALTER TABLE payables ADD INDEX idx_payable_bank (bank_account_id)');
+        }
+        if (!schema_constraint_exists($pdo, 'payables', 'fk_payable_bank')) {
+            $pdo->exec('ALTER TABLE payables ADD CONSTRAINT fk_payable_bank FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL');
+        }
+        $pdo->prepare('INSERT INTO schema_migrations (version) VALUES (?)')->execute([$version]);
+    } catch (Throwable $exception) {
+        error_log('Falha ao criar a preferência bancária das despesas: ' . $exception->getMessage());
+        throw new RuntimeException('Não foi possível preparar a conta bancária prevista das despesas.', 0, $exception);
+    } finally {
+        $pdo->query("SELECT RELEASE_LOCK('financontrol_payable_bank_preference_migration')");
+    }
+}
+
 function schema_table_exists(PDO $pdo, string $table): bool
 {
     $statement = $pdo->prepare(
