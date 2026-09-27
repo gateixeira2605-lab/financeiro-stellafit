@@ -64,7 +64,7 @@ final class SettingsController extends BaseController
 
         db()->prepare('UPDATE company_settings SET tax_regime=?,business_activity=?,accounting_policy=?,accounting_start_date=?,payable_control_account_id=?,receivable_control_account_id=?,bank_control_account_id=? WHERE id=1')->execute([$taxRegime,$activity?:null,$policy?:null,$start?:null,$payableAccount,$receivableAccount,$bankAccount]);
 
-        flash('success', 'Identidade da empresa atualizada.');
+        flash('success', 'Configurações da empresa atualizadas.');
         redirect('settings');
     }
 

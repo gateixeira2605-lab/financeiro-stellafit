@@ -73,7 +73,7 @@ require __DIR__ . '/../financial_list_filters.php';
       <div class="sm:col-span-2" data-quick-contact data-endpoint="<?=url('contacts/quick-create')?>" data-contact-type="fornecedor" data-success-label="Fornecedor">
         <div class="grid gap-4 sm:grid-cols-2">
           <div><div class="flex items-center justify-between gap-2"><label class="label" for="pfContact">Fornecedor</label><button type="button" class="text-xs font-semibold text-teal-600 hover:text-teal-700" data-quick-contact-toggle aria-expanded="false"><span aria-hidden="true">+</span> Novo fornecedor</button></div><select id="pfContact" class="field" name="contact_id" data-quick-contact-select><option value="">Selecione</option><?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></div>
-          <label><span class="label">Categoria financeira</span><select id="pfCategory" class="field" name="category_id" required><option value="">Selecione</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>"><?=e($o['financial_category'].' · '.$o['name'])?></option><?php endforeach; ?></select></label>
+          <label><span class="label">Categoria</span><select id="pfCategory" class="field" name="category_id" required><option value="">Selecione</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select><span class="mt-1 block text-xs text-slate-500">A classificação dos relatórios é automática.</span></label>
         </div>
         <div class="mt-3 hidden rounded-xl border border-teal-200 bg-teal-50/70 p-4 dark:border-teal-800 dark:bg-teal-950/30" data-quick-contact-panel>
           <div class="grid gap-3 sm:grid-cols-2">

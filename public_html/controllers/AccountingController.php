@@ -21,7 +21,7 @@ final class AccountingController extends BaseController
         ];
         $unbalanced=db()->query("SELECT COUNT(*) FROM (SELECT e.id FROM journal_entries e JOIN journal_lines l ON l.entry_id=e.id GROUP BY e.id HAVING ABS(SUM(CASE WHEN l.side='D' THEN l.amount ELSE -l.amount END))>0.004) x")->fetchColumn();
         $settings=db()->query('SELECT tax_regime,accounting_start_date FROM company_settings WHERE id=1')->fetch();
-        $this->render('accounting/index',compact('accounts','legacy','templates','postingAccounts','financialCategories','stats','unbalanced','settings','q')+['pageTitle'=>'Plano de contas']);
+        $this->render('accounting/index',compact('accounts','legacy','templates','postingAccounts','financialCategories','stats','unbalanced','settings','q')+['pageTitle'=>'Classificação financeira']);
     }
 
     public function toggleAccount(): void

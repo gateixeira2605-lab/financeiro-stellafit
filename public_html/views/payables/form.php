@@ -22,11 +22,12 @@
       </select>
     </label>
     <label>
-      <span class="label">Categoria financeira</span>
+      <span class="label">Categoria</span>
       <select class="field" name="category_id" required>
         <option value="">Selecione</option>
-        <?php foreach ($categories as $o): ?><option value="<?=$o['id']?>" <?=$item['category_id'] == $o['id'] ? 'selected' : ''?>><?=e($o['financial_category'].' · '.$o['name'])?></option><?php endforeach; ?>
+        <?php foreach ($categories as $o): ?><option value="<?=$o['id']?>" <?=$item['category_id'] == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?>
       </select>
+      <span class="mt-1 block text-xs text-slate-500">Escolha pelo nome do dia a dia. A classificação dos relatórios é automática.</span>
     </label>
     <label><span class="label">Data do documento</span><input class="field" type="date" name="document_date" value="<?=e($item['document_date'] ?: date('Y-m-d'))?>" required></label>
     <label><span class="label">Competência</span><input class="field" type="date" name="competence_date" value="<?=e($item['competence_date'] ?: date('Y-m-d'))?>" required></label>

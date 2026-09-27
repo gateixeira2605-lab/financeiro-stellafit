@@ -36,7 +36,7 @@ $branding = company_branding();
     <a class="nav-link <?=$navClass('reconciliation')?>" title="Conciliação" href="<?=url('reconciliation')?>"><i data-lucide="scale"></i><span class="sidebar-label">Conciliação</span></a>
     <div class="sidebar-section px-3 pt-5 pb-1 text-[11px] uppercase tracking-widest">Cadastros</div>
     <a class="nav-link <?=$navClass('categories')?>" title="Categorias" href="<?=url('categories')?>"><i data-lucide="tags"></i><span class="sidebar-label">Categorias</span></a>
-    <a class="nav-link <?=$navClass('accounting')?>" title="Plano de contas" href="<?=url('accounting')?>"><i data-lucide="network"></i><span class="sidebar-label">Plano de contas</span></a>
+      <a class="nav-link <?=$navClass('accounting')?>" title="Classificação financeira" href="<?=url('accounting')?>"><i data-lucide="wand-sparkles"></i><span class="sidebar-label">Classificação financeira</span></a>
     <a class="nav-link <?=$navClass('contacts')?>" title="Contatos" href="<?=url('contacts')?>"><i data-lucide="users"></i><span class="sidebar-label">Contatos</span></a>
     <div class="sidebar-section px-3 pt-5 pb-1 text-[11px] uppercase tracking-widest">Relatórios</div>
     <a class="nav-link <?=$navClass('reports')?>" title="Fluxo, DRE e mensal" href="<?=url('reports')?>"><i data-lucide="bar-chart-3"></i><span class="sidebar-label">Fluxo, DRE e mensal</span></a>

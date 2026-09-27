@@ -138,6 +138,73 @@ function transaction_record(string $entityType, int $entityId, string $amount, s
     return (int) db()->lastInsertId();
 }
 
+/**
+ * Opções amigáveis exibidas ao usuário. Cada opção resolve, internamente, a
+ * conta contábil e a classificação financeira necessárias aos relatórios.
+ */
+function accounting_category_purposes(): array
+{
+    return [
+        'revenue_memberships' => ['group'=>'Receitas','label'=>'Mensalidades e assinaturas','classification'=>'receita_operacional','financial_category_id'=>'FIN_REC_OPER','account_id'=>'PC_3_1_01_003','type'=>'fixa'],
+        'revenue_services' => ['group'=>'Receitas','label'=>'Serviços, aulas ou atendimentos','classification'=>'receita_operacional','financial_category_id'=>'FIN_REC_OPER','account_id'=>'PC_3_1_01_002','type'=>'variavel'],
+        'revenue_products' => ['group'=>'Receitas','label'=>'Venda de produtos','classification'=>'receita_operacional','financial_category_id'=>'FIN_REC_OPER','account_id'=>'PC_3_1_01_001','type'=>'variavel'],
+        'revenue_other_operating' => ['group'=>'Receitas','label'=>'Outras receitas do negócio','classification'=>'receita_operacional','financial_category_id'=>'FIN_REC_OPER','account_id'=>'PC_3_1_01_004','type'=>'variavel'],
+        'revenue_financial' => ['group'=>'Receitas','label'=>'Rendimentos e receitas financeiras','classification'=>'receita_nao_operacional','financial_category_id'=>'FIN_FIN_RESULT','account_id'=>'PC_3_4_01_001','type'=>'variavel'],
+        'revenue_other' => ['group'=>'Receitas','label'=>'Outras receitas eventuais','classification'=>'receita_nao_operacional','financial_category_id'=>'FIN_OUTROS','account_id'=>'PC_3_5_01_001','type'=>'variavel'],
+
+        'expense_inventory' => ['group'=>'Compras e operação','label'=>'Compra de mercadorias ou estoque','classification'=>'despesa_operacional','financial_category_id'=>'FIN_ESTOQUE','account_id'=>'PC_1_1_03_001','type'=>'variavel'],
+        'expense_direct_services' => ['group'=>'Compras e operação','label'=>'Prestadores e serviços diretamente ligados à operação','classification'=>'despesa_operacional','financial_category_id'=>'FIN_CUSTOS','account_id'=>'PC_3_2_03_010','type'=>'variavel'],
+        'expense_operational_materials' => ['group'=>'Compras e operação','label'=>'Materiais usados nos serviços','classification'=>'despesa_operacional','financial_category_id'=>'FIN_CUSTOS','account_id'=>'PC_3_2_03_003','type'=>'variavel'],
+        'expense_card_fees' => ['group'=>'Vendas e divulgação','label'=>'Taxas de cartão e meios de pagamento','classification'=>'despesa_operacional','financial_category_id'=>'FIN_COMERCIAL','account_id'=>'PC_3_3_01_001','type'=>'variavel'],
+        'expense_commissions' => ['group'=>'Vendas e divulgação','label'=>'Comissões de vendas','classification'=>'despesa_operacional','financial_category_id'=>'FIN_COMERCIAL','account_id'=>'PC_3_3_01_003','type'=>'variavel'],
+        'expense_marketing' => ['group'=>'Vendas e divulgação','label'=>'Marketing, anúncios e publicidade','classification'=>'despesa_operacional','financial_category_id'=>'FIN_COMERCIAL','account_id'=>'PC_3_3_01_004','type'=>'variavel'],
+
+        'expense_payroll' => ['group'=>'Equipe','label'=>'Salários e folha de pagamento','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_PESSOAL','account_id'=>'PC_3_3_03_002','control_account_id'=>'PC_2_1_02_001','type'=>'fixa'],
+        'expense_prolabore' => ['group'=>'Equipe','label'=>'Pró-labore','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_PESSOAL','account_id'=>'PC_3_3_03_001','control_account_id'=>'PC_2_1_02_001','type'=>'fixa'],
+        'expense_fgts' => ['group'=>'Equipe','label'=>'FGTS','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_PESSOAL','account_id'=>'PC_3_3_03_005','control_account_id'=>'PC_2_1_02_005','type'=>'fixa'],
+        'expense_inss' => ['group'=>'Equipe','label'=>'INSS e encargos trabalhistas','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_PESSOAL','account_id'=>'PC_3_3_03_004','control_account_id'=>'PC_2_1_02_006','type'=>'fixa'],
+        'expense_benefits' => ['group'=>'Equipe','label'=>'Benefícios da equipe','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_PESSOAL','account_id'=>'PC_3_3_03_011','type'=>'fixa'],
+
+        'expense_rent' => ['group'=>'Estrutura e manutenção','label'=>'Aluguel','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_001','type'=>'fixa'],
+        'expense_condo' => ['group'=>'Estrutura e manutenção','label'=>'Condomínio','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_002','type'=>'fixa'],
+        'expense_iptu' => ['group'=>'Estrutura e manutenção','label'=>'IPTU','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_003','type'=>'fixa'],
+        'expense_water' => ['group'=>'Estrutura e manutenção','label'=>'Água','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_004','type'=>'fixa'],
+        'expense_energy' => ['group'=>'Estrutura e manutenção','label'=>'Energia elétrica','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_008','type'=>'fixa'],
+        'expense_internet' => ['group'=>'Estrutura e manutenção','label'=>'Internet e telefone','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_ADMIN','account_id'=>'PC_3_3_02_005','type'=>'fixa'],
+        'expense_cleaning' => ['group'=>'Estrutura e manutenção','label'=>'Limpeza e conservação','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_005','type'=>'fixa'],
+        'expense_maintenance' => ['group'=>'Estrutura e manutenção','label'=>'Manutenção e reparos','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_009','type'=>'variavel'],
+
+        'expense_software' => ['group'=>'Administração','label'=>'Sistemas, aplicativos e assinaturas','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_ADMIN','account_id'=>'PC_3_3_02_004','type'=>'fixa'],
+        'expense_accounting' => ['group'=>'Administração','label'=>'Contabilidade','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_ADMIN','account_id'=>'PC_3_3_02_001','type'=>'fixa'],
+        'expense_legal' => ['group'=>'Administração','label'=>'Serviços jurídicos','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_ADMIN','account_id'=>'PC_3_3_02_002','type'=>'variavel'],
+        'expense_office' => ['group'=>'Administração','label'=>'Material de escritório e consumo','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_ADMIN','account_id'=>'PC_3_3_05_001','type'=>'variavel'],
+        'expense_travel' => ['group'=>'Administração','label'=>'Viagens e deslocamentos','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_ADMIN','account_id'=>'PC_3_3_05_002','type'=>'variavel'],
+        'expense_bank_fees' => ['group'=>'Financeiro','label'=>'Tarifas bancárias','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_FIN_RESULT','account_id'=>'PC_3_4_02_002','type'=>'variavel'],
+        'expense_interest' => ['group'=>'Financeiro','label'=>'Juros e multas','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_FIN_RESULT','account_id'=>'PC_3_4_02_001','type'=>'variavel'],
+
+        'expense_das' => ['group'=>'Impostos','label'=>'DAS do Simples Nacional','classification'=>'despesa_operacional','financial_category_id'=>'FIN_TRIBUTO','account_id'=>'PC_3_1_02_001','control_account_id'=>'PC_2_1_03_001','type'=>'fixa'],
+        'expense_iss' => ['group'=>'Impostos','label'=>'ISS','classification'=>'despesa_operacional','financial_category_id'=>'FIN_TRIBUTO','account_id'=>'PC_3_1_02_004','control_account_id'=>'PC_2_1_03_004','type'=>'variavel'],
+        'expense_pis' => ['group'=>'Impostos','label'=>'PIS sobre faturamento','classification'=>'despesa_operacional','financial_category_id'=>'FIN_TRIBUTO','account_id'=>'PC_3_1_02_002','control_account_id'=>'PC_2_1_03_002','type'=>'variavel'],
+        'expense_cofins' => ['group'=>'Impostos','label'=>'COFINS sobre faturamento','classification'=>'despesa_operacional','financial_category_id'=>'FIN_TRIBUTO','account_id'=>'PC_3_1_02_003','control_account_id'=>'PC_2_1_03_003','type'=>'variavel'],
+        'expense_icms' => ['group'=>'Impostos','label'=>'ICMS sobre vendas','classification'=>'despesa_operacional','financial_category_id'=>'FIN_TRIBUTO','account_id'=>'PC_3_1_02_005','control_account_id'=>'PC_2_1_03_005','type'=>'variavel'],
+
+        'investment_equipment' => ['group'=>'Investimentos','label'=>'Máquinas e equipamentos','classification'=>'investimento','financial_category_id'=>'FIN_CAPEX','account_id'=>'PC_1_2_03_001','type'=>'variavel'],
+        'investment_computers' => ['group'=>'Investimentos','label'=>'Computadores e informática','classification'=>'investimento','financial_category_id'=>'FIN_CAPEX','account_id'=>'PC_1_2_03_004','type'=>'variavel'],
+        'investment_furniture' => ['group'=>'Investimentos','label'=>'Móveis e utensílios','classification'=>'investimento','financial_category_id'=>'FIN_CAPEX','account_id'=>'PC_1_2_03_002','type'=>'variavel'],
+        'investment_improvements' => ['group'=>'Investimentos','label'=>'Obras, instalações e benfeitorias','classification'=>'investimento','financial_category_id'=>'FIN_CAPEX','account_id'=>'PC_1_2_03_003','type'=>'variavel'],
+        'investment_vehicles' => ['group'=>'Investimentos','label'=>'Veículos','classification'=>'investimento','financial_category_id'=>'FIN_CAPEX','account_id'=>'PC_1_2_03_005','type'=>'variavel'],
+        'expense_other' => ['group'=>'Outros','label'=>'Outra despesa identificada','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OUTROS','account_id'=>'PC_3_5_02_001','type'=>'variavel'],
+    ];
+}
+
+function accounting_category_purpose_for(array $category): ?string
+{
+    foreach (accounting_category_purposes() as $key => $purpose) {
+        if (($category['account_id'] ?? null) === $purpose['account_id']) return $key;
+    }
+    return null;
+}
+
 function accounting_category_options(string $nature): array
 {
     $classes=$nature==='receivable'?["receita_operacional","receita_nao_operacional"]:["despesa_operacional","despesa_administrativa","investimento"];
@@ -146,7 +213,7 @@ function accounting_category_options(string $nature): array
         FROM categories c JOIN financial_categories f ON f.category_id=c.financial_category_id
         JOIN chart_accounts a ON a.account_id=c.account_id
         WHERE c.active=1 AND c.accounting_enabled=1 AND a.active=1 AND a.accepts_posting=1
-          AND c.classification IN ($placeholders) ORDER BY f.name,c.name");
+          AND c.classification IN ($placeholders) ORDER BY c.name");
     $statement->execute($classes);
     return $statement->fetchAll();
 }

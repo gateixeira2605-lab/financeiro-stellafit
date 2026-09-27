@@ -1,17 +1,32 @@
-<form class="card max-w-4xl space-y-5 p-6" method="post" action="<?=url('categories/save')?>">
+<form class="card max-w-3xl space-y-6 p-6" method="post" action="<?=url('categories/save')?>">
   <?=csrf_field()?><input type="hidden" name="id" value="<?=e($category['id'])?>">
-  <div><h2 class="text-lg font-semibold">Categoria da interface</h2><p class="mt-1 text-sm text-slate-500">O usuário escolhe esta categoria no lançamento; as contas técnicas são aplicadas automaticamente.</p></div>
-  <div class="grid gap-4 sm:grid-cols-2">
-    <label class="sm:col-span-2"><span class="label">Nome</span><input class="field" name="name" value="<?=e($category['name'])?>" maxlength="120" required></label>
-    <label><span class="label">Tipo gerencial</span><select class="field" name="type"><option value="fixa" <?=$category['type']==='fixa'?'selected':''?>>Fixa</option><option value="variavel" <?=$category['type']==='variavel'?'selected':''?>>Variável</option></select></label>
-    <label><span class="label">Classificação financeira</span><select class="field" name="classification"><?php foreach(['despesa_operacional'=>'Despesa operacional','despesa_administrativa'=>'Despesa administrativa','investimento'=>'Investimento','receita_operacional'=>'Receita operacional','receita_nao_operacional'=>'Receita não operacional','ajuste_saldo'=>'Ajuste de saldo bancário'] as $v=>$l):?><option value="<?=$v?>" <?=$category['classification']===$v?'selected':''?>><?=$l?></option><?php endforeach;?></select></label>
-    <label><span class="label">Grupo financeiro/DFC</span><select class="field" name="financial_category_id"><option value="">Selecione</option><?php foreach($financialCategories as $item):?><option value="<?=e($item['category_id'])?>" <?=$category['financial_category_id']===$item['category_id']?'selected':''?>><?=e($item['name'])?></option><?php endforeach;?></select></label>
-    <label><span class="label">Conta contábil de resultado/ativo</span><select class="field" name="account_id"><option value="">Selecione</option><?php foreach($accounts as $account):?><option value="<?=e($account['account_id'])?>" <?=$category['account_id']===$account['account_id']?'selected':''?>><?=e($account['code'].' · '.$account['name'])?></option><?php endforeach;?></select><span class="mt-1 block text-xs text-slate-500">Receitas usam conta credora; despesas e ativos usam conta devedora.</span></label>
-    <label class="sm:col-span-2"><span class="label">Conta de controle específica (opcional)</span><select class="field" name="control_account_id"><option value="">Usar o padrão da empresa</option><?php foreach($accounts as $account):?><option value="<?=e($account['account_id'])?>" <?=$category['control_account_id']===$account['account_id']?'selected':''?>><?=e($account['code'].' · '.$account['name'])?></option><?php endforeach;?></select><span class="mt-1 block text-xs text-slate-500">Use para tributos, salários, estoques ou outros eventos que não devam ir para clientes/fornecedores gerais.</span></label>
+  <div>
+    <h2 class="text-lg font-semibold"><?=$category['id']?'Editar categoria':'Criar categoria'?></h2>
+    <p class="mt-1 text-sm text-slate-500">Use um nome fácil de reconhecer. A classificação dos relatórios será feita automaticamente.</p>
   </div>
-  <div class="flex flex-wrap gap-5 rounded-xl bg-slate-50 p-4 text-sm dark:bg-slate-800">
-    <label class="flex items-center gap-2"><input class="h-4 w-4 accent-teal-600" type="checkbox" name="accounting_enabled" value="1" <?=$category['accounting_enabled']?'checked':''?>>Habilitada para novos lançamentos</label>
-    <label class="flex items-center gap-2"><input class="h-4 w-4 accent-teal-600" type="checkbox" name="active" value="1" <?=$category['active']?'checked':''?>>Categoria ativa</label>
-  </div>
-  <div class="flex gap-3"><button class="btn btn-primary">Salvar configuração</button><a class="btn btn-light" href="<?=url('categories')?>">Cancelar</a></div>
+
+  <label>
+    <span class="label">Nome que você quer ver nos lançamentos</span>
+    <input class="field" name="name" value="<?=e($category['name'])?>" maxlength="120" placeholder="Ex.: Aluguel da academia" required autofocus>
+  </label>
+
+  <label>
+    <span class="label">O que esta categoria representa?</span>
+    <select class="field" name="purpose" required>
+      <option value="">Selecione uma opção simples</option>
+      <?php if($category['id']&&$selectedPurpose===null):?><option value="keep_current" selected>Manter a classificação atual</option><?php endif;?>
+      <?php $lastGroup=null;foreach($purposes as $key=>$purpose):?>
+        <?php if($purpose['group']!==$lastGroup):?><?php if($lastGroup!==null):?></optgroup><?php endif;?><optgroup label="<?=e($purpose['group'])?>"><?php $lastGroup=$purpose['group'];endif;?>
+        <option value="<?=e($key)?>" <?=$selectedPurpose===$key?'selected':''?>><?=e($purpose['label'])?></option>
+      <?php endforeach;if($lastGroup!==null):?></optgroup><?php endif;?>
+    </select>
+    <span class="mt-2 block text-xs text-slate-500">Exemplo: para “Aluguel da unidade Centro”, escolha “Aluguel”. Você não precisa selecionar contas ou códigos contábeis.</span>
+  </label>
+
+  <label class="flex items-center gap-3 rounded-xl bg-slate-50 p-4 text-sm dark:bg-slate-800">
+    <input type="hidden" name="active" value="0"><input class="h-5 w-5 accent-teal-600" type="checkbox" name="active" value="1" <?=$category['active']?'checked':''?>>
+    <span><strong>Mostrar esta categoria nos lançamentos</strong><span class="mt-0.5 block text-xs text-slate-500">Desmarque somente quando não quiser mais utilizá-la.</span></span>
+  </label>
+
+  <div class="flex gap-3"><button class="btn btn-primary"><i data-lucide="check"></i>Salvar categoria</button><a class="btn btn-light" href="<?=url('categories')?>">Cancelar</a></div>
 </form>
