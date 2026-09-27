@@ -12,7 +12,8 @@
 
   <label>
     <span class="label">O que esta categoria representa?</span>
-    <select class="field" name="purpose" required>
+    <?php if(!empty($category['purpose_key'])):?><input type="hidden" name="purpose" value="<?=e($category['purpose_key'])?>"><?php endif;?>
+    <select class="field" name="purpose" required <?=!empty($category['purpose_key'])?'disabled':''?>>
       <option value="">Selecione uma opção simples</option>
       <?php if($category['id']&&$selectedPurpose===null):?><option value="keep_current" selected>Manter a classificação atual</option><?php endif;?>
       <?php $lastGroup=null;foreach($purposes as $key=>$purpose):?>
@@ -20,7 +21,7 @@
         <option value="<?=e($key)?>" <?=$selectedPurpose===$key?'selected':''?>><?=e($purpose['label'])?></option>
       <?php endforeach;if($lastGroup!==null):?></optgroup><?php endif;?>
     </select>
-    <span class="mt-2 block text-xs text-slate-500">Exemplo: para “Aluguel da unidade Centro”, escolha “Aluguel”. Você não precisa selecionar contas ou códigos contábeis.</span>
+    <span class="mt-2 block text-xs text-slate-500"><?=!empty($category['purpose_key'])?'Esta finalidade já está ligada aos relatórios e não precisa ser alterada.':'Exemplo: para “Aluguel da unidade Centro”, escolha “Aluguel”. Você não precisa selecionar contas ou códigos contábeis.'?></span>
   </label>
 
   <label class="flex items-center gap-3 rounded-xl bg-slate-50 p-4 text-sm dark:bg-slate-800">

@@ -21,7 +21,7 @@ final class CategoryController extends BaseController
 
     public function form(): void
     {
-        $category = ['id' => '', 'name' => '', 'type' => 'variavel', 'classification' => 'despesa_operacional', 'financial_category_id'=>'', 'account_id'=>'', 'control_account_id'=>'', 'accounting_enabled'=>1, 'active'=>1];
+        $category = ['id' => '', 'name' => '', 'type' => 'variavel', 'classification' => 'despesa_operacional', 'financial_category_id'=>'', 'account_id'=>'', 'control_account_id'=>'', 'purpose_key'=>'', 'accounting_enabled'=>1, 'active'=>1];
         if ($id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT)) {
             $stmt = db()->prepare('SELECT * FROM categories WHERE id=?'); $stmt->execute([$id]);
             $category = $stmt->fetch() ?: $category;
@@ -46,6 +46,7 @@ final class CategoryController extends BaseController
             $currentStmt->execute([$id]);
             $current=$currentStmt->fetch();
             if(!$current)throw new RuntimeException('Categoria não encontrada.');
+            if(!empty($current['purpose_key']))$purposeKey=$current['purpose_key'];
         }
 
         $purposes=accounting_category_purposes();

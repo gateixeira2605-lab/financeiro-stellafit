@@ -170,7 +170,7 @@ function accounting_category_purposes(): array
         'expense_iptu' => ['group'=>'Estrutura e manutenção','label'=>'IPTU','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_003','type'=>'fixa'],
         'expense_water' => ['group'=>'Estrutura e manutenção','label'=>'Água','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_004','type'=>'fixa'],
         'expense_energy' => ['group'=>'Estrutura e manutenção','label'=>'Energia elétrica','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_008','type'=>'fixa'],
-        'expense_internet' => ['group'=>'Estrutura e manutenção','label'=>'Internet e telefone','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_ADMIN','account_id'=>'PC_3_3_02_005','type'=>'fixa'],
+        'expense_internet' => ['group'=>'Estrutura e manutenção','label'=>'Internet e telefone','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_ADMIN','account_id'=>'PC_3_3_04_007','type'=>'fixa'],
         'expense_cleaning' => ['group'=>'Estrutura e manutenção','label'=>'Limpeza e conservação','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_005','type'=>'fixa'],
         'expense_maintenance' => ['group'=>'Estrutura e manutenção','label'=>'Manutenção e reparos','classification'=>'despesa_administrativa','financial_category_id'=>'FIN_OCUPACAO','account_id'=>'PC_3_3_04_009','type'=>'variavel'],
 
@@ -208,14 +208,30 @@ function accounting_category_purpose_for(array $category): ?string
 function accounting_category_options(string $nature): array
 {
     $classes=$nature==='receivable'?["receita_operacional","receita_nao_operacional"]:["despesa_operacional","despesa_administrativa","investimento"];
-    $placeholders=implode(',',array_fill(0,count($classes),'?'));
-    $statement=db()->prepare("SELECT c.id,c.name,f.name financial_category,a.code account_code
-        FROM categories c JOIN financial_categories f ON f.category_id=c.financial_category_id
-        JOIN chart_accounts a ON a.account_id=c.account_id
-        WHERE c.active=1 AND c.accounting_enabled=1 AND a.active=1 AND a.accepts_posting=1
-          AND c.classification IN ($placeholders) ORDER BY c.name");
-    $statement->execute($classes);
-    return $statement->fetchAll();
+    $statement=db()->query("SELECT c.id,c.purpose_key FROM categories c JOIN chart_accounts a ON a.account_id=c.account_id WHERE c.active=1 AND c.accounting_enabled=1 AND c.purpose_key IS NOT NULL AND a.active=1 AND a.accepts_posting=1");
+    $ids=array_column($statement->fetchAll(),'id','purpose_key');
+    $options=[];
+    foreach(accounting_category_purposes() as $key=>$purpose){
+        if(!in_array($purpose['classification'],$classes,true)||!isset($ids[$key]))continue;
+        $options[]=['id'=>(int)$ids[$key],'name'=>$purpose['label'],'group'=>$purpose['group'],'purpose_key'=>$key];
+    }
+    return $options;
+}
+
+function accounting_category_select_options(array $categories,int|string|null $selected=null): string
+{
+    $html='';$group=null;
+    foreach($categories as $category){
+        $next=(string)($category['group']??'Categorias');
+        if($next!==$group){
+            if($group!==null)$html.='</optgroup>';
+            $html.='<optgroup label="'.e($next).'">';$group=$next;
+        }
+        $isSelected=(string)$selected===(string)$category['id']?' selected':'';
+        $html.='<option value="'.e((string)$category['id']).'"'.$isSelected.'>'.e($category['name']).'</option>';
+    }
+    if($group!==null)$html.='</optgroup>';
+    return $html;
 }
 
 function accounting_posting_accounts(?string $normalSide = null): array

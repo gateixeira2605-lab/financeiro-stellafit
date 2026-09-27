@@ -18,7 +18,7 @@
     <label>
       <span class="label">Fornecedor</span>
       <select class="field" name="contact_id">
-        <option value="">Selecione</option>
+        <option value="">Selecione uma opção simples</option>
         <?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>" <?=$item['contact_id'] == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?>
       </select>
     </label>
@@ -26,7 +26,7 @@
       <span class="label">Categoria</span>
       <select class="field" name="category_id" required>
         <option value="">Selecione</option>
-        <?php foreach ($categories as $o): ?><option value="<?=$o['id']?>" <?=$item['category_id'] == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?>
+        <?=accounting_category_select_options($categories,$item['category_id'])?>
       </select>
       <span class="mt-1 block text-xs text-slate-500">Escolha pelo nome do dia a dia. A classificação dos relatórios é automática.</span>
     </label>

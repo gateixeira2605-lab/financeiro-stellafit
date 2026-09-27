@@ -21,6 +21,7 @@ $legacyPayable=(int)$pdo->lastInsertId();
 
 ensure_accounting_schema($pdo);
 $assert((int)$pdo->query('SELECT COUNT(*) FROM chart_accounts')->fetchColumn()===211,'migração deve importar 211 contas');
+$assert((int)$pdo->query('SELECT COUNT(*) FROM categories WHERE purpose_key IS NOT NULL')->fetchColumn()===count(accounting_category_purposes()),'todas as opções simplificadas devem estar disponíveis');
 $assert((int)$pdo->query('SELECT COUNT(*) FROM financial_categories')->fetchColumn()===18,'migração deve importar 18 categorias financeiras');
 $assert((int)$pdo->query('SELECT COUNT(*) FROM accounting_report_lines')->fetchColumn()===32,'migração deve importar 32 linhas de relatório');
 $assert((int)$pdo->query('SELECT COUNT(*) FROM posting_templates')->fetchColumn()===27,'migração deve importar 27 modelos');

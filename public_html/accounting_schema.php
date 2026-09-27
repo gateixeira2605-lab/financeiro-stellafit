@@ -4,13 +4,19 @@ declare(strict_types=1);
 function ensure_accounting_schema(PDO $pdo): void
 {
     $version = '20260927_accounting_v1';
-    if (schema_table_exists($pdo, 'schema_migrations') && schema_version_exists($pdo, $version)) return;
+    if (schema_table_exists($pdo, 'schema_migrations') && schema_version_exists($pdo, $version)) {
+        ensure_accounting_category_purpose_schema($pdo);
+        return;
+    }
 
     $locked = (int) $pdo->query("SELECT GET_LOCK('financontrol_accounting_migration', 30)")->fetchColumn() === 1;
     if (!$locked) throw new RuntimeException('O plano de contas está sendo preparado. Aguarde alguns segundos e tente novamente.');
 
     try {
-        if (schema_version_exists($pdo, $version)) return;
+        if (schema_version_exists($pdo, $version)) {
+            ensure_accounting_category_purpose_schema($pdo);
+            return;
+        }
 
         schema_create_backup($pdo,'categories','schema_backup_categories_20260927');
         schema_create_backup($pdo,'payables','schema_backup_payables_20260927');
@@ -212,6 +218,36 @@ function ensure_accounting_schema(PDO $pdo): void
         throw new RuntimeException('Não foi possível preparar o novo plano de contas.',0,$exception);
     } finally {
         $pdo->query("SELECT RELEASE_LOCK('financontrol_accounting_migration')");
+    }
+    ensure_accounting_category_purpose_schema($pdo);
+}
+
+function ensure_accounting_category_purpose_schema(PDO $pdo): void
+{
+    $version='20260927_accounting_purposes_v1';
+    if(schema_version_exists($pdo,$version))return;
+    $locked=(int)$pdo->query("SELECT GET_LOCK('financontrol_accounting_purposes',30)")->fetchColumn()===1;
+    if(!$locked)throw new RuntimeException('As categorias simplificadas estão sendo preparadas. Aguarde alguns segundos e tente novamente.');
+    try{
+        if(schema_version_exists($pdo,$version))return;
+        schema_add_column($pdo,'categories','purpose_key','VARCHAR(80) NULL');
+        if(!schema_index_exists($pdo,'categories','uq_category_purpose'))$pdo->exec('ALTER TABLE categories ADD UNIQUE INDEX uq_category_purpose (purpose_key)');
+
+        $find=$pdo->prepare("SELECT id FROM categories WHERE purpose_key=? OR name=? OR (purpose_key IS NULL AND account_id=?) ORDER BY CASE WHEN purpose_key=? THEN 0 WHEN name=? THEN 1 ELSE 2 END,id LIMIT 1");
+        $update=$pdo->prepare("UPDATE categories SET purpose_key=?,type=?,classification=?,financial_category_id=?,account_id=?,control_account_id=?,accounting_enabled=1,active=1,migration_status='CONFIGURADA_SIMPLIFICADA' WHERE id=?");
+        $insert=$pdo->prepare("INSERT INTO categories (name,type,classification,financial_category_id,account_id,control_account_id,purpose_key,accounting_enabled,active,migration_status) VALUES (?,?,?,?,?,?,?,1,1,'CONFIGURADA_SIMPLIFICADA')");
+        foreach(accounting_category_purposes() as $key=>$purpose){
+            $find->execute([$key,$purpose['label'],$purpose['account_id'],$key,$purpose['label']]);
+            $id=$find->fetchColumn();
+            if($id){
+                $update->execute([$key,$purpose['type'],$purpose['classification'],$purpose['financial_category_id'],$purpose['account_id'],$purpose['control_account_id']??null,(int)$id]);
+            }else{
+                $insert->execute([$purpose['label'],$purpose['type'],$purpose['classification'],$purpose['financial_category_id'],$purpose['account_id'],$purpose['control_account_id']??null,$key]);
+            }
+        }
+        $pdo->prepare('INSERT INTO schema_migrations (version) VALUES (?)')->execute([$version]);
+    }finally{
+        $pdo->query("SELECT RELEASE_LOCK('financontrol_accounting_purposes')");
     }
 }
 
