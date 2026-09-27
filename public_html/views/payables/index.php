@@ -121,7 +121,10 @@ require __DIR__ . '/../financial_list_filters.php';
         </div>
       </details>
     </div>
-    <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-700"><button type="button" class="btn btn-light" data-modal-close="payableFormDialog">Fechar</button><button class="btn btn-primary">Salvar</button></div>
+    <div class="flex items-center justify-between gap-3 border-t border-slate-200 px-5 py-4 dark:border-slate-700">
+      <button type="button" class="btn btn-light" data-modal-close="payableFormDialog">Fechar</button>
+      <div class="flex items-center gap-2"><button class="btn btn-primary order-2">Salvar</button><button name="after_save" value="continue" class="new-payable-only order-1 inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50/60 px-3 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-300 dark:hover:bg-teal-900/50"><i data-lucide="plus" class="h-4 w-4"></i>Salvar e continuar</button></div>
+    </div>
   </form>
 </dialog>
 
@@ -156,6 +159,7 @@ require __DIR__ . '/../financial_list_filters.php';
   document.querySelectorAll('.payable-edit').forEach(button=>button.addEventListener('click',()=>{closeActionMenus();const item=JSON.parse(button.dataset.item);form.reset();Object.entries(fields).forEach(([key,field])=>field.value=item[key]??'');pfAmountLabel.textContent='Valor desta conta';document.getElementById('payableFormTitle').textContent='Editar despesa';document.querySelectorAll('.new-payable-only').forEach(el=>el.classList.add('hidden'));pfCount.required=false;if(item.installment_count){pfSeriesNotice.textContent=`Editando somente a parcela ${item.installment_number} de ${item.installment_count}.`;pfSeriesNotice.classList.remove('hidden');}else pfSeriesNotice.classList.add('hidden');formDialog.showModal();}));
   [pfAmount,pfDue,pfRecurrence,pfCount,pfRecurring].forEach(field=>{field.addEventListener('input',renderPreview);field.addEventListener('change',renderPreview);});
   document.querySelectorAll('.payable-pay').forEach(button=>button.addEventListener('click',()=>{closeActionMenus();const payDialog=document.getElementById('payablePayDialog');payDialog.querySelector('form').reset();payId.value=button.dataset.id;payDescription.textContent=button.dataset.description;payRemaining.textContent=formatMoney(button.dataset.remaining);payAmount.value=String(button.dataset.remaining).replace('.',',');payMethod.value=button.dataset.method;if([...payBank.options].some(option=>option.value===button.dataset.bank))payBank.value=button.dataset.bank;payDialog.showModal();}));
+  const currentUrl=new URL(window.location.href);if(currentUrl.searchParams.get('new')==='1'){currentUrl.searchParams.delete('new');window.history.replaceState({},'',currentUrl.toString());showNew();}
 })();
 </script>
 HTML; ?>

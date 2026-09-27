@@ -105,6 +105,7 @@ final class PayableController extends BaseController
     {
         verify_csrf();
         $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $continueCreating = !$id && ($_POST['after_save'] ?? '') === 'continue';
         $description = trim((string) ($_POST['description'] ?? ''));
         $informedCents = decimal_cents($_POST['amount'] ?? '');
         $due = (string) ($_POST['due_date'] ?? '');
@@ -191,7 +192,7 @@ final class PayableController extends BaseController
 
             $pdo->commit();
             flash('success', $message);
-            redirect('payables');
+            redirect('payables', $continueCreating ? ['new' => '1'] : []);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $e;
