@@ -2,6 +2,7 @@
 <form class="card max-w-6xl space-y-6 p-6" method="post" enctype="multipart/form-data" action="<?=url('payables/save')?>">
   <?=csrf_field()?>
   <input type="hidden" name="id" value="<?=e($item['id'])?>">
+  <input type="hidden" name="document_ref" value="<?=e($item['document_ref'])?>">
 
   <?php if ($editing && !empty($item['installment_count'])): ?>
     <div class="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-200">
@@ -29,10 +30,6 @@
       </select>
       <span class="mt-1 block text-xs text-slate-500">Escolha pelo nome do dia a dia. A classificação dos relatórios é automática.</span>
     </label>
-    <label><span class="label">Data do documento</span><input class="field" type="date" name="document_date" value="<?=e($item['document_date'] ?: date('Y-m-d'))?>" required></label>
-    <label><span class="label">Competência</span><input class="field" type="date" name="competence_date" value="<?=e($item['competence_date'] ?: date('Y-m-d'))?>" required></label>
-    <label class="sm:col-span-2"><span class="label">Número/documento</span><input class="field" name="document_ref" maxlength="120" value="<?=e($item['document_ref'])?>"></label>
-
     <label>
       <span id="amountLabel" class="label"><?=$editing ? 'Valor desta parcela' : 'Valor total'?></span>
       <input id="payableAmount" class="field" name="amount" inputmode="decimal" value="<?=e($item['amount'])?>" placeholder="0,00" required>

@@ -113,12 +113,13 @@ final class PayableController extends BaseController
         $contactId = (int) ($_POST['contact_id'] ?? 0) ?: null;
         $categoryId = (int) ($_POST['category_id'] ?? 0) ?: null;
         $bankAccountId = (int) ($_POST['bank_account_id'] ?? 0) ?: null;
-        $documentDate = (string) ($_POST['document_date'] ?? date('Y-m-d'));
-        $competenceDate = (string) ($_POST['competence_date'] ?? $documentDate);
+        // Mantidas internamente para os relatórios, sem exigir conhecimento contábil no lançamento.
+        $documentDate = date('Y-m-d');
+        $competenceDate = $due;
         $documentRef = mb_substr(trim((string) ($_POST['document_ref'] ?? '')), 0, 120);
         $notes = trim((string) ($_POST['notes'] ?? ''));
 
-        if ($description === '' || $categoryId === null || $informedCents <= 0 || !is_valid_iso_date($due) || !is_valid_iso_date($documentDate) || !is_valid_iso_date($competenceDate) || !in_array($method, $this->methods, true) || !in_array($recurrence, $this->recurrences, true)) {
+        if ($description === '' || $categoryId === null || $informedCents <= 0 || !is_valid_iso_date($due) || !in_array($method, $this->methods, true) || !in_array($recurrence, $this->recurrences, true)) {
             throw new InvalidArgumentException('Preencha os dados da conta corretamente.');
         }
 
@@ -131,6 +132,9 @@ final class PayableController extends BaseController
                 $currentStmt->execute([$id]);
                 $current = $currentStmt->fetch();
                 if (!$current) throw new RuntimeException('Conta não encontrada.');
+                $createdDate=substr((string)($current['created_at']??''),0,10);
+                $documentDate=is_valid_iso_date((string)($current['document_date']??''))?$current['document_date']:(is_valid_iso_date($createdDate)?$createdDate:$due);
+                $competenceDate=is_valid_iso_date((string)($current['competence_date']??''))?$current['competence_date']:$due;
                 $paidCents = decimal_cents($current['paid_amount']);
                 if ($informedCents < $paidCents) throw new InvalidArgumentException('O valor da conta não pode ser menor que o total já pago.');
 
