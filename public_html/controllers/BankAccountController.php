@@ -30,6 +30,7 @@ final class BankAccountController extends BaseController
         $openingBalance = decimal_value($_POST['opening_balance'] ?? '0');
         $notes = mb_substr(trim((string) ($_POST['notes'] ?? '')), 0, 255);
         if ($name === '') throw new InvalidArgumentException('Informe o nome da conta bancária.');
+        if (!$id && abs($openingBalance) >= 0.005) throw new InvalidArgumentException('Cadastre a conta com saldo inicial zero e use o ajuste conciliatório com contrapartida contábil para registrar o saldo conferido.');
 
         try {
             if ($id) {
