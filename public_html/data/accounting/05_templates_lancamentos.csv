@@ -1,0 +1,28 @@
+﻿evento_id;fase;debito_codigo;credito_codigo;base_valor;classe_fluxo_caixa;condicoes;automatico
+VENDA_PROD_PRAZO;reconhecimento;1.1.02.001;3.1.01.001;BRUTO;SEM_CAIXA;"Receita na competência; imposto em regra própria.";Não — template parametrizável
+VENDA_SERV_PRAZO;reconhecimento;1.1.02.002;3.1.01.002;BRUTO;SEM_CAIXA;Receita na competência do serviço.;Não — template parametrizável
+RECEBIMENTO_CLIENTE;liquidacao;1.1.01.002;1.1.02.002;VALOR_RECEBIDO;OPERACIONAL;Selecionar conta clientes correta e banco auxiliar.;Não — template parametrizável
+VENDA_CARTAO;reconhecimento;1.1.02.003;3.1.01.001;BRUTO;SEM_CAIXA;Ajustar receita à natureza do produto/serviço.;Não — template parametrizável
+LIQUIDACAO_CARTAO;recebimento;1.1.01.002;1.1.02.003;LIQUIDO;OPERACIONAL;Conciliar valor bruto, líquido, taxa e adquirente.;Não — template parametrizável
+LIQUIDACAO_CARTAO;taxa;3.3.01.001;1.1.02.003;TAXA;SEM_CAIXA;"Líquido + taxa = bruto do recebível; não deduzir a receita bruta.";Não — template parametrizável
+COMPRA_ESTOQUE;entrada_estoque;1.1.03.001;2.1.01.001;CUSTO_AQUISICAO;SEM_CAIXA;"Conta de estoque conforme item; impostos recuperáveis têm lançamentos próprios.";Não — template parametrizável
+VENDA_ESTOQUE;baixa_cmv;3.2.01.001;1.1.03.001;CUSTO_DA_MERCADORIA;SEM_CAIXA;Não usar valor de venda como CMV.;Não — template parametrizável
+DESPESA_COMPETENCIA;reconhecimento;3.3.02.001;2.1.01.002;VALOR_DOCUMENTO;SEM_CAIXA;"Trocar débito conforme natureza; conta de fornecedor conforme documento.";Não — template parametrizável
+PAGAR_FORNECEDOR;liquidacao;2.1.01.002;1.1.01.002;VALOR_PAGO;OPERACIONAL;"Baixa o passivo; não reconhece despesa novamente.";Não — template parametrizável
+DAS_APURACAO;reconhecimento;3.1.02.001;2.1.03.001;VALOR_APURADO;SEM_CAIXA;"Apenas Simples; impedir duplicidade de componentes do DAS.";Não — template parametrizável
+DAS_PAGAMENTO;liquidacao;2.1.03.001;1.1.01.002;VALOR_PAGO;OPERACIONAL;"Pagamento baixa obrigação; multa/juros em evento separado.";Não — template parametrizável
+FOLHA_ADMIN;competencia;3.3.03.002;2.1.02.001;SALARIO_BRUTO;SEM_CAIXA;"Retenções/encargos em partidas adicionais; valor líquido não substitui bruto.";Não — template parametrizável
+PAGAR_SALARIO;liquidacao;2.1.02.001;1.1.01.002;SALARIO_LIQUIDO;OPERACIONAL;Considerar retenções e demais partidas.;Não — template parametrizável
+COMPRA_IMOBILIZADO;aquisicao;1.2.03.001;2.1.01.001;CUSTO_CAPITALIZAVEL;SEM_CAIXA;Adaptar tipo de ativo e custo capitalizável.;Não — template parametrizável
+PAGAR_IMOBILIZADO;liquidacao;2.1.01.001;1.1.01.002;VALOR_PAGO;INVESTIMENTO;Não considerar despesa de aquisição na DRE.;Não — template parametrizável
+DEPRECIACAO_ADMIN;competencia;3.3.06.001;1.2.03.007;VALOR_DEPRECIACAO;SEM_CAIXA;Ativo operacional pode ser custo, com conta diferente.;Não — template parametrizável
+EMPRESTIMO_CAPTACAO;entrada;1.1.01.002;2.1.04.001;PRINCIPAL;FINANCIAMENTO;Parcela não circulante se prazo acima do circulante.;Não — template parametrizável
+EMPRESTIMO_JUROS;competencia;3.4.02.003;2.1.04.002;JUROS;SEM_CAIXA;Separar principal dos encargos.;Não — template parametrizável
+EMPRESTIMO_PRINCIPAL_PAGTO;liquidacao;2.1.04.001;1.1.01.002;PRINCIPAL;FINANCIAMENTO;Amortização não é despesa na DRE.;Não — template parametrizável
+EMPRESTIMO_JUROS_PAGTO;liquidacao;2.1.04.002;1.1.01.002;JUROS;POLITICA_DFC;DFC de juros conforme norma e política adotada.;Não — template parametrizável
+ADIANTAMENTO_CLIENTE;recebimento;1.1.01.002;2.1.05.001;VALOR_ANTECIPADO;OPERACIONAL;Não reconhecer toda receita antes de prestar serviço.;Não — template parametrizável
+APROPRIAR_ADIANTAMENTO;competencia;2.1.05.001;3.1.01.002;PARCELA_REALIZADA;SEM_CAIXA;Reconhecer pela execução do contrato.;Não — template parametrizável
+INTEGRALIZACAO_CAPITAL;entrada;1.1.01.002;2.3.01.001;VALOR_APORTE;FINANCIAMENTO;Considerar conta a integralizar conforme subscrição.;Não — template parametrizável
+DISTRIBUICAO_LUCROS;constituicao;2.3.03.001;2.1.05.003;VALOR_APROVADO;SEM_CAIXA;"Depende de lucro/disponibilidade e ato societário; não é despesa.";Não — template parametrizável
+PAGAR_DISTRIBUICAO;liquidacao;2.1.05.003;1.1.01.002;VALOR_PAGO;FINANCIAMENTO;Baixa a obrigação.;Não — template parametrizável
+TRANSFERENCIA_PROPRIA;transferencia;1.1.01.002;1.1.01.002;VALOR_TRANSFERIDO;INTERNA_EXCLUIR_DFC;"Exigir conta financeira ORIGEM != DESTINO; uma operação ligada.";Não — template parametrizável

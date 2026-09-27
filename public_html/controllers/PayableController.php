@@ -76,7 +76,7 @@ final class PayableController extends BaseController
             'paid_amount' => $summary['total_paid'],
             'open_amount' => $summary['total_open'],
         ];
-        $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'despesa%' OR classification='investimento' ORDER BY name");
+        $categories = accounting_category_options('payable');
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('fornecedor','ambos') ORDER BY name");
         $bankAccounts = active_bank_accounts();
         $this->render('payables/index', compact('items', 'categories', 'contacts', 'bankAccounts', 'search', 'pagination', 'totals') + ['pageTitle' => 'Contas a pagar']);
@@ -86,6 +86,7 @@ final class PayableController extends BaseController
     {
         $item = [
             'id' => '', 'description' => '', 'contact_id' => '', 'category_id' => '', 'bank_account_id' => '', 'amount' => '',
+            'document_date' => date('Y-m-d'), 'competence_date' => date('Y-m-d'), 'document_ref' => '',
             'due_date' => date('Y-m-d'), 'payment_method' => 'pix', 'recurrence' => 'mensal', 'notes' => '',
             'series_id' => null, 'installment_number' => null, 'installment_count' => null, 'is_recurring' => 0,
         ];
@@ -94,7 +95,7 @@ final class PayableController extends BaseController
             $stmt->execute([$id]);
             $item = $stmt->fetch() ?: $item;
         }
-        $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'despesa%' OR classification='investimento' ORDER BY name");
+        $categories = accounting_category_options('payable');
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('fornecedor','ambos') ORDER BY name");
         $bankAccounts = active_bank_accounts();
         $this->render('payables/form', compact('item', 'categories', 'contacts', 'bankAccounts') + ['pageTitle' => $item['id'] ? 'Editar conta' : 'Nova conta a pagar']);
@@ -112,9 +113,12 @@ final class PayableController extends BaseController
         $contactId = (int) ($_POST['contact_id'] ?? 0) ?: null;
         $categoryId = (int) ($_POST['category_id'] ?? 0) ?: null;
         $bankAccountId = (int) ($_POST['bank_account_id'] ?? 0) ?: null;
+        $documentDate = (string) ($_POST['document_date'] ?? date('Y-m-d'));
+        $competenceDate = (string) ($_POST['competence_date'] ?? $documentDate);
+        $documentRef = mb_substr(trim((string) ($_POST['document_ref'] ?? '')), 0, 120);
         $notes = trim((string) ($_POST['notes'] ?? ''));
 
-        if ($description === '' || $informedCents <= 0 || !is_valid_iso_date($due) || !in_array($method, $this->methods, true) || !in_array($recurrence, $this->recurrences, true)) {
+        if ($description === '' || $categoryId === null || $informedCents <= 0 || !is_valid_iso_date($due) || !is_valid_iso_date($documentDate) || !is_valid_iso_date($competenceDate) || !in_array($method, $this->methods, true) || !in_array($recurrence, $this->recurrences, true)) {
             throw new InvalidArgumentException('Preencha os dados da conta corretamente.');
         }
 
@@ -133,8 +137,9 @@ final class PayableController extends BaseController
                 $status = $current['status'] === 'cancelado'
                     ? 'cancelado'
                     : ($paidCents === $informedCents ? 'pago' : ($paidCents > 0 ? 'parcial' : ($due < date('Y-m-d') ? 'vencido' : 'pendente')));
-                $stmt = $pdo->prepare('UPDATE payables SET description=?,contact_id=?,category_id=?,bank_account_id=?,amount=?,due_date=?,payment_method=?,status=?,recurrence=?,notes=? WHERE id=?');
-                $stmt->execute([$description, $contactId, $categoryId, $bankAccountId, cents_decimal($informedCents), $due, $method, $status, $recurrence, $notes, $id]);
+                $stmt = $pdo->prepare('UPDATE payables SET description=?,contact_id=?,category_id=?,bank_account_id=?,amount=?,document_date=?,competence_date=?,document_ref=?,due_date=?,payment_method=?,status=?,recurrence=?,notes=? WHERE id=?');
+                $stmt->execute([$description, $contactId, $categoryId, $bankAccountId, cents_decimal($informedCents), $documentDate, $competenceDate, $documentRef ?: null, $due, $method, $status, $recurrence, $notes, $id]);
+                if (($current['accounting_status'] ?? '') === 'POSTED') AccountingEngine::recognizePayable($pdo, (int) $id, true);
                 Attachment::store('payable', (int) $id, $_FILES['attachment'] ?? []);
                 audit_log('payable', (int) $id, 'updated', 'Dados da conta a pagar alterados.', changed_fields([
                     'Descrição' => [$current['description'], $description],
@@ -159,18 +164,19 @@ final class PayableController extends BaseController
                 $amounts = installment_amounts($informedCents, $installmentCount, $isRecurring);
                 $seriesId = bin2hex(random_bytes(16));
                 $stmt = $pdo->prepare("INSERT INTO payables
-                    (description,contact_id,category_id,bank_account_id,amount,due_date,payment_method,status,recurrence,notes,series_id,installment_number,installment_count,is_recurring)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                    (description,contact_id,category_id,bank_account_id,amount,document_date,competence_date,document_ref,due_date,payment_method,status,recurrence,notes,series_id,installment_number,installment_count,is_recurring)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 $firstId = 0;
 
                 foreach ($amounts as $index => $amountCents) {
                     $installmentDue = installment_due_date($due, $recurrence, $index);
                     $status = $installmentDue < date('Y-m-d') ? 'vencido' : 'pendente';
                     $stmt->execute([
-                        $description, $contactId, $categoryId, $bankAccountId, cents_decimal($amountCents), $installmentDue, $method,
+                        $description, $contactId, $categoryId, $bankAccountId, cents_decimal($amountCents), $documentDate, installment_due_date($competenceDate, $recurrence, $index), $documentRef ?: null, $installmentDue, $method,
                         $status, $recurrence, $notes, $seriesId, $index + 1, $installmentCount, (int) $isRecurring,
                     ]);
                     $entityId = (int) $pdo->lastInsertId();
+                    AccountingEngine::recognizePayable($pdo, $entityId);
                     if ($index === 0) $firstId = $entityId;
                     audit_log('payable', $entityId, 'created', 'Conta a pagar cadastrada.');
                 }
@@ -219,21 +225,26 @@ final class PayableController extends BaseController
             $status = $newRemainingCents === 0 ? 'pago' : 'parcial';
             $pdo->prepare('UPDATE payables SET paid_amount=?,status=?,payment_date=?,payment_method=? WHERE id=?')
                 ->execute([cents_decimal($newPaidCents), $status, $date, $method, $id]);
-            transaction_record('payable', $id, cents_decimal($paymentCents), $date, $notes, $bankAccountId, $method);
+            $transactionId = transaction_record('payable', $id, cents_decimal($paymentCents), $date, $notes, $bankAccountId, $method);
+            AccountingEngine::settle($pdo, 'payable', $item, $transactionId, cents_decimal($paymentCents), $date, $bankAccountId);
             audit_log('payable', $id, 'payment', 'Pagamento de ' . money(cents_decimal($paymentCents)) . ' registrado em ' . $bankAccount['name'] . '. Saldo restante: ' . money(cents_decimal($newRemainingCents)) . '.');
 
             // Compatibilidade: recorrências antigas só geram a próxima conta após a quitação integral.
             if ($status === 'pago' && $item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
                 $next = next_due_date($item['due_date'], $item['recurrence']);
                 $sql = "INSERT IGNORE INTO payables
-                    (description,contact_id,category_id,bank_account_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
-                    VALUES (?,?,?,?,?,?,?,'pendente',?,?,?)";
+                    (description,contact_id,category_id,bank_account_id,amount,document_date,competence_date,document_ref,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,'pendente',?,?,?)";
                 $legacyStmt = $pdo->prepare($sql);
                 $legacyStmt->execute([
-                    $item['description'], $item['contact_id'], $item['category_id'], $item['bank_account_id'], $item['amount'], $next,
+                    $item['description'], $item['contact_id'], $item['category_id'], $item['bank_account_id'], $item['amount'], $next, $next, $item['document_ref'], $next,
                     $item['payment_method'], $item['recurrence'], $item['notes'], $id,
                 ]);
-                if ($legacyStmt->rowCount()) audit_log('payable', (int) $pdo->lastInsertId(), 'created', 'Próxima ocorrência recorrente gerada após a quitação.');
+                if ($legacyStmt->rowCount()) {
+                    $newId = (int) $pdo->lastInsertId();
+                    if (($item['accounting_status'] ?? '') === 'POSTED') AccountingEngine::recognizePayable($pdo, $newId);
+                    audit_log('payable', $newId, 'created', 'Próxima ocorrência recorrente gerada após a quitação.');
+                }
             }
 
             $pdo->commit();
@@ -265,8 +276,8 @@ final class PayableController extends BaseController
             $items = $statement->fetchAll();
             $update = $pdo->prepare("UPDATE payables SET paid_amount=amount,status='pago',payment_date=?,payment_method=?,is_scheduled=0 WHERE id=?");
             $legacy = $pdo->prepare("INSERT IGNORE INTO payables
-                (description,contact_id,category_id,bank_account_id,amount,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
-                VALUES (?,?,?,?,?,?,?,'pendente',?,?,?)");
+                (description,contact_id,category_id,bank_account_id,amount,document_date,competence_date,document_ref,due_date,payment_method,status,recurrence,notes,recurrence_parent_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,'pendente',?,?,?)");
             $processed = 0;
 
             foreach ($items as $item) {
@@ -276,16 +287,18 @@ final class PayableController extends BaseController
 
                 $id = (int) $item['id'];
                 $update->execute([$date, $method, $id]);
-                transaction_record('payable', $id, cents_decimal($remainingCents), $date, $notes, $bankAccountId, $method);
+                $transactionId = transaction_record('payable', $id, cents_decimal($remainingCents), $date, $notes, $bankAccountId, $method);
+                AccountingEngine::settle($pdo, 'payable', $item, $transactionId, cents_decimal($remainingCents), $date, $bankAccountId);
                 audit_log('payable', $id, 'payment', 'Quitação em massa de ' . money(cents_decimal($remainingCents)) . ' registrada em ' . $bankAccount['name'] . '.');
 
                 if ($item['recurrence'] !== 'nenhuma' && empty($item['series_id'])) {
+                    $next=next_due_date($item['due_date'], $item['recurrence']);
                     $legacy->execute([
                         $item['description'], $item['contact_id'], $item['category_id'], $item['bank_account_id'], $item['amount'],
-                        next_due_date($item['due_date'], $item['recurrence']), $item['payment_method'],
+                        $next,$next,$item['document_ref'],$next,$item['payment_method'],
                         $item['recurrence'], $item['notes'], $id,
                     ]);
-                    if ($legacy->rowCount()) audit_log('payable', (int) $pdo->lastInsertId(), 'created', 'Próxima ocorrência recorrente gerada após quitação em massa.');
+                    if ($legacy->rowCount()) {$newId=(int)$pdo->lastInsertId();if(($item['accounting_status']??'')==='POSTED')AccountingEngine::recognizePayable($pdo,$newId);audit_log('payable', $newId, 'created', 'Próxima ocorrência recorrente gerada após quitação em massa.');}
                 }
                 $processed++;
             }
@@ -356,6 +369,7 @@ final class PayableController extends BaseController
                 if (!$changes) continue;
                 $params[] = (int) $item['id'];
                 $pdo->prepare('UPDATE payables SET ' . implode(',', $sets) . ' WHERE id=?')->execute($params);
+                if (($item['accounting_status'] ?? '') === 'POSTED' && $requested['category_id'] !== '__keep__') AccountingEngine::recognizePayable($pdo,(int)$item['id'],true);
                 audit_log('payable', (int) $item['id'], 'bulk_updated', 'Conta alterada em edição em massa.', $changes);
                 $processed++;
             }
@@ -375,12 +389,14 @@ final class PayableController extends BaseController
         $pdo = db();
         $pdo->beginTransaction();
         try {
-            $statement = $pdo->prepare('SELECT id,status FROM payables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
+            $statement = $pdo->prepare('SELECT * FROM payables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
             $statement->execute($ids);
             $update = $pdo->prepare("UPDATE payables SET status='cancelado',is_scheduled=0 WHERE id=?");
             $processed = 0;
             foreach ($statement->fetchAll() as $item) {
                 if ($item['status'] === 'cancelado') continue;
+                if (decimal_cents($item['paid_amount'])>0) continue;
+                AccountingEngine::reverseTitle($pdo,'payable',(int)$item['id'],'Cancelamento da despesa');
                 $update->execute([(int) $item['id']]);
                 audit_log('payable', (int) $item['id'], 'cancelled', 'Conta a pagar cancelada em massa.');
                 $processed++;
@@ -420,6 +436,10 @@ final class PayableController extends BaseController
         $pdo = db();
         $pdo->beginTransaction();
         try {
+            $current=$pdo->prepare('SELECT * FROM payables WHERE id=? FOR UPDATE');$current->execute([$id]);$item=$current->fetch();
+            if(!$item) throw new RuntimeException('Conta não encontrada.');
+            if(decimal_cents($item['paid_amount'])>0) throw new InvalidArgumentException('Uma despesa com pagamentos não pode ser cancelada; faça a conciliação ou o estorno primeiro.');
+            AccountingEngine::reverseTitle($pdo,'payable',$id,'Cancelamento da despesa');
             $stmt = $pdo->prepare("UPDATE payables SET status='cancelado',is_scheduled=0 WHERE id=?");
             $stmt->execute([$id]);
             if ($stmt->rowCount()) audit_log('payable', $id, 'cancelled', 'Conta a pagar cancelada.');

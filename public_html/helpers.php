@@ -131,10 +131,32 @@ function audit_log(string $entityType, int $entityId, string $action, string $de
     $stmt->execute([$entityType, $entityId, $action, $description, $payload, (int) ($_SESSION['user_id'] ?? 0) ?: null]);
 }
 
-function transaction_record(string $entityType, int $entityId, string $amount, string $date, string $notes = '', ?int $bankAccountId = null, ?string $paymentMethod = null): void
+function transaction_record(string $entityType, int $entityId, string $amount, string $date, string $notes = '', ?int $bankAccountId = null, ?string $paymentMethod = null): int
 {
     $stmt = db()->prepare('INSERT INTO financial_transactions (entity_type,entity_id,amount,transaction_date,notes,bank_account_id,payment_method,created_by) VALUES (?,?,?,?,?,?,?,?)');
     $stmt->execute([$entityType, $entityId, $amount, $date, $notes !== '' ? $notes : null, $bankAccountId, $paymentMethod, (int) ($_SESSION['user_id'] ?? 0) ?: null]);
+    return (int) db()->lastInsertId();
+}
+
+function accounting_category_options(string $nature): array
+{
+    $classes=$nature==='receivable'?["receita_operacional","receita_nao_operacional"]:["despesa_operacional","despesa_administrativa","investimento"];
+    $placeholders=implode(',',array_fill(0,count($classes),'?'));
+    $statement=db()->prepare("SELECT c.id,c.name,f.name financial_category,a.code account_code
+        FROM categories c JOIN financial_categories f ON f.category_id=c.financial_category_id
+        JOIN chart_accounts a ON a.account_id=c.account_id
+        WHERE c.active=1 AND c.accounting_enabled=1 AND a.active=1 AND a.accepts_posting=1
+          AND c.classification IN ($placeholders) ORDER BY f.name,c.name");
+    $statement->execute($classes);
+    return $statement->fetchAll();
+}
+
+function accounting_posting_accounts(?string $normalSide = null): array
+{
+    $sql="SELECT account_id,code,name,account_class,normal_side FROM chart_accounts WHERE active=1 AND account_type='ANALITICA' AND accepts_posting=1";
+    $params=[];
+    if($normalSide!==null){$sql.=' AND normal_side=?';$params[]=$normalSide;}
+    $sql.=' ORDER BY code';$statement=db()->prepare($sql);$statement->execute($params);return $statement->fetchAll();
 }
 
 function active_bank_accounts(): array

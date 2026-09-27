@@ -9,7 +9,9 @@ final class SettingsController extends BaseController
     public function index(): void
     {
         $branding = company_branding();
-        $this->render('settings/index', compact('branding') + ['pageTitle' => 'Configurações da empresa']);
+        $accounting=db()->query('SELECT tax_regime,business_activity,accounting_policy,accounting_start_date,payable_control_account_id,receivable_control_account_id,bank_control_account_id FROM company_settings WHERE id=1')->fetch();
+        $accounts=accounting_posting_accounts();
+        $this->render('settings/index', compact('branding','accounting','accounts') + ['pageTitle' => 'Configurações da empresa']);
     }
 
     public function save(): void
@@ -19,6 +21,13 @@ final class SettingsController extends BaseController
         if ($companyName === '' || mb_strlen($companyName) > 120) {
             throw new InvalidArgumentException('Informe um nome de empresa com até 120 caracteres.');
         }
+        $taxRegime=(string)($_POST['tax_regime']??'NAO_CONFIGURADO');
+        if(!in_array($taxRegime,['NAO_CONFIGURADO','SIMPLES','PRESUMIDO','REAL'],true))throw new InvalidArgumentException('Regime tributário inválido.');
+        $activity=mb_substr(trim((string)($_POST['business_activity']??'')),0,160);
+        $policy=mb_substr(trim((string)($_POST['accounting_policy']??'')),0,160);
+        $start=trim((string)($_POST['accounting_start_date']??''));if($start!==''&&!is_valid_iso_date($start))throw new InvalidArgumentException('Data inicial contábil inválida.');
+        $payableAccount=trim((string)($_POST['payable_control_account_id']??''));$receivableAccount=trim((string)($_POST['receivable_control_account_id']??''));$bankAccount=trim((string)($_POST['bank_control_account_id']??''));
+        foreach([$payableAccount,$receivableAccount,$bankAccount] as $accountId){if($accountId==='')throw new InvalidArgumentException('Configure as três contas contábeis de controle.');$check=db()->prepare("SELECT COUNT(*) FROM chart_accounts WHERE account_id=? AND active=1 AND account_type='ANALITICA' AND accepts_posting=1");$check->execute([$accountId]);if(!(int)$check->fetchColumn())throw new InvalidArgumentException('Uma das contas contábeis de controle é inválida.');}
 
         $logoData = null;
         $logoMime = null;
@@ -52,6 +61,8 @@ final class SettingsController extends BaseController
         } else {
             db()->prepare('UPDATE company_settings SET company_name=? WHERE id=1')->execute([$companyName]);
         }
+
+        db()->prepare('UPDATE company_settings SET tax_regime=?,business_activity=?,accounting_policy=?,accounting_start_date=?,payable_control_account_id=?,receivable_control_account_id=?,bank_control_account_id=? WHERE id=1')->execute([$taxRegime,$activity?:null,$policy?:null,$start?:null,$payableAccount,$receivableAccount,$bankAccount]);
 
         flash('success', 'Identidade da empresa atualizada.');
         redirect('settings');

@@ -74,7 +74,7 @@ final class ReceivableController extends BaseController
             'paid_amount' => $summary['total_paid'],
             'open_amount' => $summary['total_open'],
         ];
-        $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'receita%' ORDER BY name");
+        $categories = accounting_category_options('receivable');
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('cliente','ambos') ORDER BY name");
         $bankAccounts = active_bank_accounts();
         $this->render('receivables/index', compact('items', 'categories', 'contacts', 'bankAccounts', 'search', 'pagination', 'totals') + ['pageTitle' => 'Contas a receber']);
@@ -82,13 +82,13 @@ final class ReceivableController extends BaseController
 
     public function form(): void
     {
-        $item = ['id' => '', 'description' => '', 'contact_id' => '', 'category_id' => '', 'expected_amount' => '', 'due_date' => date('Y-m-d'), 'receipt_method' => 'pix', 'notes' => ''];
+        $item = ['id' => '', 'description' => '', 'contact_id' => '', 'category_id' => '', 'expected_amount' => '', 'document_date' => date('Y-m-d'), 'competence_date' => date('Y-m-d'), 'document_ref' => '', 'due_date' => date('Y-m-d'), 'receipt_method' => 'pix', 'notes' => ''];
         if ($id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT)) {
             $stmt = db()->prepare('SELECT * FROM receivables WHERE id=?');
             $stmt->execute([$id]);
             $item = $stmt->fetch() ?: $item;
         }
-        $categories = select_options("SELECT id,name FROM categories WHERE classification LIKE 'receita%' ORDER BY name");
+        $categories = accounting_category_options('receivable');
         $contacts = select_options("SELECT id,name FROM contacts WHERE type IN ('cliente','ambos') ORDER BY name");
         $this->render('receivables/form', compact('item', 'categories', 'contacts') + ['pageTitle' => $item['id'] ? 'Editar conta' : 'Nova conta a receber']);
     }
@@ -103,8 +103,11 @@ final class ReceivableController extends BaseController
         $method = (string) ($_POST['receipt_method'] ?? '');
         $contactId = (int) ($_POST['contact_id'] ?? 0) ?: null;
         $categoryId = (int) ($_POST['category_id'] ?? 0) ?: null;
+        $documentDate = (string) ($_POST['document_date'] ?? date('Y-m-d'));
+        $competenceDate = (string) ($_POST['competence_date'] ?? $documentDate);
+        $documentRef = mb_substr(trim((string) ($_POST['document_ref'] ?? '')), 0, 120);
         $notes = trim((string) ($_POST['notes'] ?? ''));
-        if ($description === '' || $amountCents <= 0 || !is_valid_iso_date($due) || !in_array($method, $this->methods, true)) {
+        if ($description === '' || $categoryId === null || $amountCents <= 0 || !is_valid_iso_date($due) || !is_valid_iso_date($documentDate) || !is_valid_iso_date($competenceDate) || !in_array($method, $this->methods, true)) {
             throw new InvalidArgumentException('Preencha os dados da conta corretamente.');
         }
 
@@ -121,8 +124,9 @@ final class ReceivableController extends BaseController
                 $status = $current['status'] === 'cancelado'
                     ? 'cancelado'
                     : ($amountCents === $receivedCents ? 'recebido' : ($receivedCents > 0 ? 'parcial' : ($due < date('Y-m-d') ? 'vencido' : 'pendente')));
-                $pdo->prepare('UPDATE receivables SET description=?,contact_id=?,category_id=?,expected_amount=?,due_date=?,receipt_method=?,status=?,notes=? WHERE id=?')
-                    ->execute([$description, $contactId, $categoryId, cents_decimal($amountCents), $due, $method, $status, $notes, $id]);
+                $pdo->prepare('UPDATE receivables SET description=?,contact_id=?,category_id=?,expected_amount=?,document_date=?,competence_date=?,document_ref=?,due_date=?,receipt_method=?,status=?,notes=? WHERE id=?')
+                    ->execute([$description, $contactId, $categoryId, cents_decimal($amountCents), $documentDate, $competenceDate, $documentRef ?: null, $due, $method, $status, $notes, $id]);
+                if (($current['accounting_status'] ?? '') === 'POSTED') AccountingEngine::recognizeReceivable($pdo, (int) $id, true);
                 audit_log('receivable', (int) $id, 'updated', 'Dados da conta a receber alterados.', changed_fields([
                     'Descrição' => [$current['description'], $description],
                     'Cliente' => [$current['contact_id'], $contactId],
@@ -135,9 +139,10 @@ final class ReceivableController extends BaseController
                 $message = 'Conta a receber atualizada.';
             } else {
                 $status = $due < date('Y-m-d') ? 'vencido' : 'pendente';
-                $stmt = $pdo->prepare('INSERT INTO receivables (description,contact_id,category_id,expected_amount,due_date,receipt_method,status,notes) VALUES (?,?,?,?,?,?,?,?)');
-                $stmt->execute([$description, $contactId, $categoryId, cents_decimal($amountCents), $due, $method, $status, $notes]);
+                $stmt = $pdo->prepare('INSERT INTO receivables (description,contact_id,category_id,expected_amount,document_date,competence_date,document_ref,due_date,receipt_method,status,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+                $stmt->execute([$description, $contactId, $categoryId, cents_decimal($amountCents), $documentDate, $competenceDate, $documentRef ?: null, $due, $method, $status, $notes]);
                 $id = (int) $pdo->lastInsertId();
+                AccountingEngine::recognizeReceivable($pdo, $id);
                 audit_log('receivable', $id, 'created', 'Conta a receber cadastrada.');
                 $message = 'Conta a receber salva.';
             }
@@ -180,7 +185,8 @@ final class ReceivableController extends BaseController
             $status = $newRemainingCents === 0 ? 'recebido' : 'parcial';
             $pdo->prepare('UPDATE receivables SET received_amount=?,receipt_date=?,status=?,receipt_method=? WHERE id=?')
                 ->execute([cents_decimal($newTotalCents), $date, $status, $method, $id]);
-            transaction_record('receivable', $id, cents_decimal($receivedCents), $date, $notes, $bankAccountId, $method);
+            $transactionId=transaction_record('receivable', $id, cents_decimal($receivedCents), $date, $notes, $bankAccountId, $method);
+            AccountingEngine::settle($pdo,'receivable',$item,$transactionId,cents_decimal($receivedCents),$date,$bankAccountId);
             audit_log('receivable', $id, 'receipt', 'Recebimento de ' . money(cents_decimal($receivedCents)) . ' registrado em ' . $bankAccount['name'] . '. Saldo restante: ' . money(cents_decimal($newRemainingCents)) . '.');
             $pdo->commit();
             flash('success', $status === 'recebido' ? 'Recebimento concluído.' : 'Recebimento parcial registrado.');
@@ -216,7 +222,8 @@ final class ReceivableController extends BaseController
                 if ($remainingCents <= 0) continue;
                 $id = (int) $item['id'];
                 $update->execute([$date, $method, $id]);
-                transaction_record('receivable', $id, cents_decimal($remainingCents), $date, $notes, $bankAccountId, $method);
+                $transactionId=transaction_record('receivable', $id, cents_decimal($remainingCents), $date, $notes, $bankAccountId, $method);
+                AccountingEngine::settle($pdo,'receivable',$item,$transactionId,cents_decimal($remainingCents),$date,$bankAccountId);
                 audit_log('receivable', $id, 'receipt', 'Quitação em massa de ' . money(cents_decimal($remainingCents)) . ' registrada em ' . $bankAccount['name'] . '.');
                 $processed++;
             }
@@ -286,6 +293,7 @@ final class ReceivableController extends BaseController
                 if (!$changes) continue;
                 $params[] = (int) $item['id'];
                 $pdo->prepare('UPDATE receivables SET ' . implode(',', $sets) . ' WHERE id=?')->execute($params);
+                if (($item['accounting_status'] ?? '') === 'POSTED' && $requested['category_id'] !== '__keep__') AccountingEngine::recognizeReceivable($pdo,(int)$item['id'],true);
                 audit_log('receivable', (int) $item['id'], 'bulk_updated', 'Conta alterada em edição em massa.', $changes);
                 $processed++;
             }
@@ -305,12 +313,14 @@ final class ReceivableController extends BaseController
         $pdo = db();
         $pdo->beginTransaction();
         try {
-            $statement = $pdo->prepare('SELECT id,status FROM receivables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
+            $statement = $pdo->prepare('SELECT * FROM receivables WHERE id IN (' . sql_placeholders($ids) . ') FOR UPDATE');
             $statement->execute($ids);
             $update = $pdo->prepare("UPDATE receivables SET status='cancelado' WHERE id=?");
             $processed = 0;
             foreach ($statement->fetchAll() as $item) {
                 if ($item['status'] === 'cancelado') continue;
+                if (decimal_cents($item['received_amount'])>0) continue;
+                AccountingEngine::reverseTitle($pdo,'receivable',(int)$item['id'],'Cancelamento da receita');
                 $update->execute([(int) $item['id']]);
                 audit_log('receivable', (int) $item['id'], 'cancelled', 'Conta a receber cancelada em massa.');
                 $processed++;
@@ -331,6 +341,10 @@ final class ReceivableController extends BaseController
         $pdo = db();
         $pdo->beginTransaction();
         try {
+            $current=$pdo->prepare('SELECT * FROM receivables WHERE id=? FOR UPDATE');$current->execute([$id]);$item=$current->fetch();
+            if(!$item) throw new RuntimeException('Conta não encontrada.');
+            if(decimal_cents($item['received_amount'])>0) throw new InvalidArgumentException('Uma receita com recebimentos não pode ser cancelada; faça a conciliação ou o estorno primeiro.');
+            AccountingEngine::reverseTitle($pdo,'receivable',$id,'Cancelamento da receita');
             $stmt = $pdo->prepare("UPDATE receivables SET status='cancelado' WHERE id=?");
             $stmt->execute([$id]);
             if ($stmt->rowCount()) audit_log('receivable', $id, 'cancelled', 'Conta a receber cancelada.');

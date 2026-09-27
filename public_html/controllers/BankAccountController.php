@@ -18,7 +18,8 @@ final class BankAccountController extends BaseController
             JOIN categories c ON c.id=a.category_id
             LEFT JOIN users u ON u.id=a.created_by
             ORDER BY a.adjustment_date DESC,a.id DESC LIMIT 100")->fetchAll();
-        $this->render('banks/index', compact('accounts', 'totalBalance', 'adjustmentCategories', 'adjustments') + ['pageTitle' => 'Contas bancárias']);
+        $accountingAccounts=accounting_posting_accounts();
+        $this->render('banks/index', compact('accounts', 'totalBalance', 'adjustmentCategories', 'adjustments','accountingAccounts') + ['pageTitle' => 'Contas bancárias']);
     }
 
     public function save(): void
@@ -52,10 +53,12 @@ final class BankAccountController extends BaseController
         verify_csrf();
         $bankAccountId = (int) ($_POST['bank_account_id'] ?? 0);
         $categoryId = (int) ($_POST['category_id'] ?? 0);
+        $accountId=trim((string)($_POST['account_id']??''));
         $targetBalance = decimal_value($_POST['target_balance'] ?? '');
         $date = (string) ($_POST['adjustment_date'] ?? date('Y-m-d'));
         $notes = mb_substr(trim((string) ($_POST['notes'] ?? '')), 0, 255);
         if (!is_valid_iso_date($date)) throw new InvalidArgumentException('Data do ajuste inválida.');
+        if($accountId==='')throw new InvalidArgumentException('Selecione a contrapartida contábil do ajuste.');
 
         $pdo = db();
         $pdo->beginTransaction();
@@ -76,6 +79,8 @@ final class BankAccountController extends BaseController
 
             $pdo->prepare('INSERT INTO bank_balance_adjustments (bank_account_id,category_id,amount,adjustment_date,notes,created_by) VALUES (?,?,?,?,?,?)')
                 ->execute([$bankAccountId, $categoryId, number_format($difference, 2, '.', ''), $date, $notes !== '' ? $notes : null, (int) ($_SESSION['user_id'] ?? 0) ?: null]);
+            $adjustmentId=(int)$pdo->lastInsertId();
+            AccountingEngine::postAdjustment($pdo,$adjustmentId,number_format($difference,2,'.',''),$date,$bankAccountId,$accountId,$notes!==''?$notes:'Ajuste conciliatório de saldo');
             $pdo->commit();
             flash('success', 'Saldo de ' . $account['name'] . ' ajustado em ' . money($difference) . '.');
         } catch (Throwable $exception) {

@@ -33,6 +33,14 @@ Na tela de Contatos, é possível exportar os registros para CSV e importar cont
 
 Na opção **Personalização** do menu lateral, o nome e o logotipo da empresa podem ser alterados pelo próprio sistema. A identidade é armazenada no banco de dados para permanecer disponível após novos deploys. O logotipo aceita JPG, PNG ou WEBP de até 2 MB.
 
+## Plano de contas e escrituração
+
+O sistema inclui o plano mestre `2026.09-v1`, com 211 contas hierárquicas, categorias financeiras separadas, de-para das 55 contas legadas, linhas de DRE/BP e modelos de partidas. A migração automática cria o razão (`journal_entries` e `journal_lines`) e preserva títulos anteriores como `LEGACY_UNPOSTED`: nenhum saldo ou lançamento histórico é convertido sem conciliação.
+
+Novas receitas e despesas configuradas são reconhecidas pelo regime de competência. Pagamentos e recebimentos geram somente a liquidação contra bancos, sem duplicar receita ou despesa. Na área **Plano de contas** é possível consultar a hierarquia, revisar o de-para legado e executar verificações de consistência. Em **Categorias**, cada opção amigável da interface é vinculada a uma conta analítica e a uma categoria financeira/DFC.
+
+Após o primeiro deploy, configure em **Personalização** o regime tributário, a data inicial da escrituração e as contas de controle de clientes, fornecedores e bancos. Os 27 modelos avançados permanecem desativados até parametrização e revisão contábil. O plano é uma base operacional e deve ser homologado pelo contador responsável antes de demonstrações formais.
+
 ## Requisitos
 
 - PHP 8.1 ou superior com extensões PDO MySQL, Fileinfo e Mbstring

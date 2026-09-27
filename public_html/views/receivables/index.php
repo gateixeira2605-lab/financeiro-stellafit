@@ -25,7 +25,7 @@ require __DIR__ . '/../financial_list_filters.php';
     <tbody>
       <?php foreach ($items as $i):
         $badge = status_badge($i['status'], $i['due_date']);
-        $editData = json_encode(array_intersect_key($i, array_flip(['id', 'description', 'contact_id', 'category_id', 'expected_amount', 'due_date', 'receipt_method', 'notes'])), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $editData = json_encode(array_intersect_key($i, array_flip(['id', 'description', 'contact_id', 'category_id', 'expected_amount', 'document_date', 'competence_date', 'document_ref', 'due_date', 'receipt_method', 'notes'])), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
       ?>
         <tr>
           <td><input type="checkbox" class="h-4 w-4 accent-teal-600" data-select-item value="<?=$i['id']?>" aria-label="Selecionar lançamento"></td>
@@ -66,7 +66,7 @@ require __DIR__ . '/../financial_list_filters.php';
       <div class="sm:col-span-2" data-quick-contact data-endpoint="<?=url('contacts/quick-create')?>" data-contact-type="cliente" data-success-label="Cliente">
         <div class="grid gap-4 sm:grid-cols-2">
           <div><div class="flex items-center justify-between gap-2"><label class="label" for="rfContact">Cliente</label><button type="button" class="text-xs font-semibold text-teal-600 hover:text-teal-700" data-quick-contact-toggle aria-expanded="false"><span aria-hidden="true">+</span> Novo cliente</button></div><select id="rfContact" class="field" name="contact_id" data-quick-contact-select><option value="">Selecione</option><?php foreach ($contacts as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></div>
-          <label><span class="label">Categoria</span><select id="rfCategory" class="field" name="category_id"><option value="">Selecione</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>"><?=e($o['name'])?></option><?php endforeach; ?></select></label>
+          <label><span class="label">Categoria financeira</span><select id="rfCategory" class="field" name="category_id" required><option value="">Selecione</option><?php foreach ($categories as $o): ?><option value="<?=$o['id']?>"><?=e($o['financial_category'].' · '.$o['name'])?></option><?php endforeach; ?></select></label>
         </div>
         <div class="mt-3 hidden rounded-xl border border-teal-200 bg-teal-50/70 p-4 dark:border-teal-800 dark:bg-teal-950/30" data-quick-contact-panel>
           <div class="grid gap-3 sm:grid-cols-2">
@@ -79,6 +79,9 @@ require __DIR__ . '/../financial_list_filters.php';
         </div>
         <p class="mt-2 hidden text-xs font-medium" data-quick-contact-feedback aria-live="polite"></p>
       </div>
+      <label><span class="label">Data do documento</span><input id="rfDocumentDate" class="field" type="date" name="document_date" value="<?=date('Y-m-d')?>" required></label>
+      <label><span class="label">Competência</span><input id="rfCompetenceDate" class="field" type="date" name="competence_date" value="<?=date('Y-m-d')?>" required></label>
+      <label class="sm:col-span-2"><span class="label">Número/documento (opcional)</span><input id="rfDocumentRef" class="field" name="document_ref" maxlength="120" placeholder="Ex.: NF 1234, contrato, recibo"></label>
       <label><span class="label">Valor esperado</span><input id="rfAmount" class="field" name="expected_amount" inputmode="decimal" placeholder="0,00" required></label>
       <label><span class="label">Vencimento</span><input id="rfDue" class="field" type="date" name="due_date" value="<?=date('Y-m-d')?>" required></label>
       <label><span class="label">Forma de recebimento</span><select id="rfMethod" class="field" name="receipt_method"><?php foreach (['pix' => 'Pix', 'cartao_credito' => 'Cartão crédito', 'cartao_debito' => 'Cartão débito', 'boleto' => 'Boleto', 'dinheiro' => 'Dinheiro', 'transferencia' => 'Transferência'] as $v => $l): ?><option value="<?=$v?>"><?=$l?></option><?php endforeach; ?></select></label>
@@ -108,7 +111,7 @@ require __DIR__ . '/../financial_list_filters.php';
 <script>
 (() => {
   const dialog=document.getElementById('receivableFormDialog'),form=document.getElementById('receivableModalForm');
-  const fields={id:document.getElementById('rfId'),description:document.getElementById('rfDescription'),contact_id:document.getElementById('rfContact'),category_id:document.getElementById('rfCategory'),expected_amount:document.getElementById('rfAmount'),due_date:document.getElementById('rfDue'),receipt_method:document.getElementById('rfMethod'),notes:document.getElementById('rfNotes')};
+  const fields={id:document.getElementById('rfId'),description:document.getElementById('rfDescription'),contact_id:document.getElementById('rfContact'),category_id:document.getElementById('rfCategory'),expected_amount:document.getElementById('rfAmount'),document_date:document.getElementById('rfDocumentDate'),competence_date:document.getElementById('rfCompetenceDate'),document_ref:document.getElementById('rfDocumentRef'),due_date:document.getElementById('rfDue'),receipt_method:document.getElementById('rfMethod'),notes:document.getElementById('rfNotes')};
   document.getElementById('newReceivableBtn').addEventListener('click',()=>{closeActionMenus();form.reset();fields.id.value='';document.getElementById('receivableFormTitle').textContent='Nova receita';dialog.showModal();});
   document.querySelectorAll('.receivable-edit').forEach(button=>button.addEventListener('click',()=>{closeActionMenus();const item=JSON.parse(button.dataset.item);form.reset();Object.entries(fields).forEach(([key,field])=>field.value=item[key]??'');document.getElementById('receivableFormTitle').textContent='Editar receita';dialog.showModal();}));
   document.querySelectorAll('.receivable-receive').forEach(button=>button.addEventListener('click',()=>{closeActionMenus();const receiveDialog=document.getElementById('receiveDialog');receiveDialog.querySelector('form').reset();document.getElementById('receiveId').value=button.dataset.id;document.getElementById('receiveDescription').textContent=button.dataset.description;document.getElementById('receiveRemaining').textContent=formatMoney(button.dataset.remaining);document.getElementById('receiveAmount').value=String(button.dataset.remaining).replace('.',',');document.getElementById('receiveMethod').value=button.dataset.method;receiveDialog.showModal();}));

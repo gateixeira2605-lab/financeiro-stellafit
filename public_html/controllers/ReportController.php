@@ -5,14 +5,14 @@ final class ReportController extends BaseController
 {
     public function index(): void
     {
-        $type=(string)($_GET['type']??'realizado');if(!in_array($type,['realizado','projetado','dre','comparativo'],true))$type='realizado';[$start,$end]=period_range();validate_date_range($start,$end);
+        $type=(string)($_GET['type']??'realizado');if(!in_array($type,['realizado','projetado','dre','comparativo','dre_contabil','balanco','balancete','dfc_contabil'],true))$type='realizado';[$start,$end]=period_range();validate_date_range($start,$end);
         [$title,$columns,$rows]=$this->data($type,$start,$end);
         $this->render('reports/index',compact('type','start','end','title','columns','rows')+['pageTitle'=>'Relatórios']);
     }
 
     public function export(): void
     {
-        $type=(string)($_GET['type']??'realizado');if(!in_array($type,['realizado','projetado','dre','comparativo'],true))$type='realizado';$format=(string)($_GET['format']??'csv');$start=(string)($_GET['start']??date('Y-m-01'));$end=(string)($_GET['end']??date('Y-m-t'));validate_date_range($start,$end);
+        $type=(string)($_GET['type']??'realizado');if(!in_array($type,['realizado','projetado','dre','comparativo','dre_contabil','balanco','balancete','dfc_contabil'],true))$type='realizado';$format=(string)($_GET['format']??'csv');$start=(string)($_GET['start']??date('Y-m-01'));$end=(string)($_GET['end']??date('Y-m-t'));validate_date_range($start,$end);
         [$title,$columns,$rows]=$this->data($type,$start,$end);$date=date('Y-m-d');
         if($format==='csv'){
             header('Content-Type: text/csv; charset=UTF-8');header('Content-Disposition: attachment; filename="relatorio-'.$type.'-'.$date.'.csv"');
@@ -30,6 +30,10 @@ final class ReportController extends BaseController
     private function data(string $type,string $start,string $end): array
     {
         $pdo=db();
+        if($type==='dre_contabil')return $this->accountingDre($pdo,$start,$end);
+        if($type==='balanco')return $this->balanceSheet($pdo,$end);
+        if($type==='balancete')return $this->trialBalance($pdo,$start,$end);
+        if($type==='dfc_contabil')return $this->accountingCashFlow($pdo,$start,$end);
         if($type==='projetado'){
             $stmt=$pdo->prepare("SELECT DATE_FORMAT(day,'%d/%m/%Y') data,entrada,saida,(entrada-saida) saldo FROM (
               SELECT day,SUM(entrada) entrada,SUM(saida) saida FROM (
@@ -67,5 +71,39 @@ final class ReportController extends BaseController
           ) x GROUP BY day) y ORDER BY STR_TO_DATE(data,'%d/%m/%Y')");$stmt->execute([$start,$end,$start,$end]);$raw=$stmt->fetchAll();$acc=0;$rows=[];
         foreach($raw as $r){$acc+=(float)$r['saldo'];$rows[]=[$r['data'],money($r['entrada']),money($r['saida']),money($r['saldo']),money($acc)];}
         return ['Fluxo de Caixa Realizado',['data'=>'Data','entrada'=>'Entradas','saida'=>'Saídas','saldo'=>'Saldo do dia','acumulado'=>'Acumulado'],$rows];
+    }
+
+    private function accountingDre(PDO $pdo,string $start,string $end): array
+    {
+        $stmt=$pdo->prepare("SELECT r.line_id,r.description,r.sort_order,COALESCE(SUM(CASE WHEN e.id IS NULL THEN 0 WHEN a.normal_side='D' THEN CASE WHEN l.side='D' THEN l.amount ELSE -l.amount END ELSE CASE WHEN l.side='C' THEN l.amount ELSE -l.amount END END),0) total FROM accounting_report_lines r LEFT JOIN chart_accounts a ON a.report_line_id=r.line_id AND a.account_type='ANALITICA' LEFT JOIN journal_lines l ON l.account_id=a.account_id LEFT JOIN journal_entries e ON e.id=l.entry_id AND e.competence_date BETWEEN ? AND ? WHERE r.report_type='DRE' AND r.active=1 GROUP BY r.line_id,r.description,r.sort_order ORDER BY r.sort_order");
+        $stmt->execute([$start,$end]);$lines=$stmt->fetchAll();$values=[];$rows=[];
+        foreach($lines as $line){$cents=decimal_cents($line['total']);$values[$line['line_id']]=$cents;$rows[]=[$line['description'],money(cents_decimal($cents))];}
+        $revenue=$values['DRE_RECEITA_BRUTA']??0;$net=$revenue-($values['DRE_DEDUCOES']??0);$gross=$net-($values['DRE_CUSTOS']??0);
+        $operating=$gross;foreach(['DRE_DESP_COMERCIAIS','DRE_DESP_ADMIN','DRE_DESP_PESSOAL','DRE_DESP_OCUPACAO','DRE_OUTRAS_DESP_OP','DRE_DEPR_AMORT'] as $key)$operating-=($values[$key]??0);
+        $beforeTax=$operating+($values['DRE_RECEITAS_FIN']??0)-($values['DRE_DESP_FIN']??0)+($values['DRE_OUTRAS_RECEITAS']??0)-($values['DRE_OUTRAS_DESPESAS']??0);$netIncome=$beforeTax-($values['DRE_TRIBUTOS_LUCRO']??0);
+        $rows[]=['= Receita líquida',money(cents_decimal($net))];$rows[]=['= Lucro bruto',money(cents_decimal($gross))];$rows[]=['= Resultado operacional',money(cents_decimal($operating))];$rows[]=['= Resultado antes dos tributos sobre lucro',money(cents_decimal($beforeTax))];$rows[]=['= Resultado líquido',money(cents_decimal($netIncome))];
+        return ['DRE por competência',['linha'=>'Linha','valor'=>'Valor'],$rows];
+    }
+
+    private function balanceSheet(PDO $pdo,string $end): array
+    {
+        $stmt=$pdo->prepare("SELECT r.line_id,r.description,r.sort_order,COALESCE(SUM(CASE WHEN e.id IS NULL THEN 0 WHEN a.normal_side='D' THEN CASE WHEN l.side='D' THEN l.amount ELSE -l.amount END ELSE CASE WHEN l.side='C' THEN l.amount ELSE -l.amount END END),0) total FROM accounting_report_lines r LEFT JOIN chart_accounts a ON a.report_line_id=r.line_id AND a.account_type='ANALITICA' LEFT JOIN journal_lines l ON l.account_id=a.account_id LEFT JOIN journal_entries e ON e.id=l.entry_id AND e.posting_date<=? WHERE r.report_type='BP' AND r.active=1 GROUP BY r.line_id,r.description,r.sort_order ORDER BY r.sort_order");$stmt->execute([$end]);$lines=$stmt->fetchAll();$rows=[];$assets=$liabilities=$equity=0;
+        foreach($lines as $line){$cents=decimal_cents($line['total']);if($line['sort_order']<=9)$assets+=$cents;elseif($line['sort_order']<=15)$liabilities+=$cents;else$equity+=$cents;$rows[]=[$line['description'],money(cents_decimal($cents))];}
+        $resultStmt=$pdo->prepare("SELECT COALESCE(SUM(CASE WHEN a.normal_side='C' THEN CASE WHEN l.side='C' THEN l.amount ELSE -l.amount END ELSE -(CASE WHEN l.side='D' THEN l.amount ELSE -l.amount END) END),0) FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id JOIN chart_accounts a ON a.account_id=l.account_id WHERE a.report_type='DRE' AND e.posting_date<=?");$resultStmt->execute([$end]);$currentResult=decimal_cents($resultStmt->fetchColumn());$equity+=$currentResult;
+        $rows[]=['Resultado acumulado ainda não encerrado',money(cents_decimal($currentResult))];$rows[]=['TOTAL DO ATIVO',money(cents_decimal($assets))];$rows[]=['TOTAL DO PASSIVO + PL',money(cents_decimal($liabilities+$equity))];$rows[]=['DIFERENÇA DE CONFERÊNCIA',money(cents_decimal($assets-$liabilities-$equity))];
+        return ['Balanço patrimonial em '.br_date($end),['linha'=>'Linha','valor'=>'Saldo'],$rows];
+    }
+
+    private function trialBalance(PDO $pdo,string $start,string $end): array
+    {
+        $stmt=$pdo->prepare("SELECT a.code,a.name,a.normal_side,COALESCE(SUM(CASE WHEN e.posting_date BETWEEN ? AND ? AND l.side='D' THEN l.amount ELSE 0 END),0) debits,COALESCE(SUM(CASE WHEN e.posting_date BETWEEN ? AND ? AND l.side='C' THEN l.amount ELSE 0 END),0) credits,COALESCE(SUM(CASE WHEN e.posting_date<=? THEN CASE WHEN l.side='D' THEN l.amount ELSE -l.amount END ELSE 0 END),0) balance FROM chart_accounts a LEFT JOIN journal_lines l ON l.account_id=a.account_id LEFT JOIN journal_entries e ON e.id=l.entry_id WHERE a.account_type='ANALITICA' GROUP BY a.account_id,a.code,a.name,a.normal_side HAVING debits<>0 OR credits<>0 OR balance<>0 ORDER BY a.code");$stmt->execute([$start,$end,$start,$end,$end]);$rows=[];
+        foreach($stmt->fetchAll() as $r){$balance=decimal_cents($r['balance']);$rows[]=[$r['code'],$r['name'],money($r['debits']),money($r['credits']),money(cents_decimal(abs($balance))),$balance===0?'—':($balance>0?'D':'C')];}
+        return ['Balancete de verificação',['codigo'=>'Código','conta'=>'Conta','debitos'=>'Débitos','creditos'=>'Créditos','saldo'=>'Saldo','natureza'=>'D/C'],$rows];
+    }
+
+    private function accountingCashFlow(PDO $pdo,string $start,string $end): array
+    {
+        $stmt=$pdo->prepare("SELECT f.dfc_default,f.name,COALESCE(SUM(CASE WHEN l.side='D' THEN l.amount ELSE -l.amount END),0) total FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id JOIN chart_accounts a ON a.account_id=l.account_id LEFT JOIN financial_categories f ON f.category_id=e.financial_category_id WHERE l.bank_account_id IS NOT NULL AND e.posting_date BETWEEN ? AND ? AND COALESCE(f.dfc_default,'REVISAR')<>'INTERNA_EXCLUIR_DFC' GROUP BY f.dfc_default,f.name ORDER BY f.dfc_default,f.name");$stmt->execute([$start,$end]);$rows=[];$total=0;foreach($stmt->fetchAll() as $r){$cents=decimal_cents($r['total']);$total+=$cents;$rows[]=[$r['dfc_default']?:'REVISAR',$r['name']?:'Sem classificação',money(cents_decimal($cents))];}$rows[]=['TOTAL','Variação líquida de caixa',money(cents_decimal($total))];
+        return ['Fluxo de caixa contábil',['classe'=>'Classe DFC','categoria'=>'Categoria','valor'=>'Valor'],$rows];
     }
 }

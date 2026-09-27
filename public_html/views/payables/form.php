@@ -22,12 +22,15 @@
       </select>
     </label>
     <label>
-      <span class="label">Categoria</span>
-      <select class="field" name="category_id">
+      <span class="label">Categoria financeira</span>
+      <select class="field" name="category_id" required>
         <option value="">Selecione</option>
-        <?php foreach ($categories as $o): ?><option value="<?=$o['id']?>" <?=$item['category_id'] == $o['id'] ? 'selected' : ''?>><?=e($o['name'])?></option><?php endforeach; ?>
+        <?php foreach ($categories as $o): ?><option value="<?=$o['id']?>" <?=$item['category_id'] == $o['id'] ? 'selected' : ''?>><?=e($o['financial_category'].' · '.$o['name'])?></option><?php endforeach; ?>
       </select>
     </label>
+    <label><span class="label">Data do documento</span><input class="field" type="date" name="document_date" value="<?=e($item['document_date'] ?: date('Y-m-d'))?>" required></label>
+    <label><span class="label">Competência</span><input class="field" type="date" name="competence_date" value="<?=e($item['competence_date'] ?: date('Y-m-d'))?>" required></label>
+    <label class="sm:col-span-2"><span class="label">Número/documento</span><input class="field" name="document_ref" maxlength="120" value="<?=e($item['document_ref'])?>"></label>
 
     <label>
       <span id="amountLabel" class="label"><?=$editing ? 'Valor desta parcela' : 'Valor total'?></span>

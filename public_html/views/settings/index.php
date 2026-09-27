@@ -12,6 +12,19 @@
             <input class="field" name="company_name" value="<?=e($branding['company_name'])?>" maxlength="120" required>
         </label>
 
+        <div class="border-t border-slate-200 pt-5 dark:border-slate-700"><h2 class="text-lg font-semibold">Configuração contábil e tributária</h2><p class="mt-1 text-sm text-slate-500">Esses parâmetros controlam quais contas podem ser usadas pelo motor de lançamentos.</p></div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label><span class="label">Regime tributário</span><select class="field" name="tax_regime" required><option value="NAO_CONFIGURADO" <?=$accounting['tax_regime']==='NAO_CONFIGURADO'?'selected':''?>>Selecionar depois</option><option value="SIMPLES" <?=$accounting['tax_regime']==='SIMPLES'?'selected':''?>>Simples Nacional</option><option value="PRESUMIDO" <?=$accounting['tax_regime']==='PRESUMIDO'?'selected':''?>>Lucro Presumido</option><option value="REAL" <?=$accounting['tax_regime']==='REAL'?'selected':''?>>Lucro Real</option></select></label>
+          <label><span class="label">Início da escrituração no sistema</span><input class="field" type="date" name="accounting_start_date" value="<?=e($accounting['accounting_start_date'])?>"></label>
+          <label><span class="label">Atividade/segmento</span><input class="field" name="business_activity" maxlength="160" value="<?=e($accounting['business_activity'])?>" placeholder="Ex.: serviços, comércio, indústria"></label>
+          <label><span class="label">Política contábil</span><input class="field" name="accounting_policy" maxlength="160" value="<?=e($accounting['accounting_policy'])?>" placeholder="Ex.: competência mensal"></label>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-3">
+          <label><span class="label">Controle de fornecedores</span><select class="field" name="payable_control_account_id" required><?php foreach($accounts as $a):?><option value="<?=e($a['account_id'])?>" <?=$accounting['payable_control_account_id']===$a['account_id']?'selected':''?>><?=e($a['code'].' · '.$a['name'])?></option><?php endforeach;?></select></label>
+          <label><span class="label">Controle de clientes</span><select class="field" name="receivable_control_account_id" required><?php foreach($accounts as $a):?><option value="<?=e($a['account_id'])?>" <?=$accounting['receivable_control_account_id']===$a['account_id']?'selected':''?>><?=e($a['code'].' · '.$a['name'])?></option><?php endforeach;?></select></label>
+          <label><span class="label">Bancos conta movimento</span><select class="field" name="bank_control_account_id" required><?php foreach($accounts as $a):?><option value="<?=e($a['account_id'])?>" <?=$accounting['bank_control_account_id']===$a['account_id']?'selected':''?>><?=e($a['code'].' · '.$a['name'])?></option><?php endforeach;?></select></label>
+        </div>
+
         <label>
             <span class="label">Logotipo</span>
             <input class="field file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1 file:font-medium file:text-teal-700" type="file" name="company_logo" accept="image/jpeg,image/png,image/webp">

@@ -14,3 +14,5 @@ jobs:
         run: find public_html -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Validate JavaScript syntax
         run: node --check public_html/assets/js/app.js
+      - name: Validate accounting master data
+        run: php public_html/tests/accounting_master_test.php

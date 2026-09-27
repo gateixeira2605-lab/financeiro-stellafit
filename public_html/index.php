@@ -9,6 +9,7 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ini_set('session.c
 session_start();
 
 require __DIR__ . '/db.php';
+require __DIR__ . '/accounting_schema.php';
 require __DIR__ . '/helpers.php';
 
 spl_autoload_register(function (string $class): void {
@@ -27,6 +28,7 @@ try {
         ensure_database_schema();
         ensure_company_settings_schema(db(), (string) config('company_name', 'Minha Empresa'));
         ensure_payable_bank_preference_schema(db());
+        ensure_accounting_schema(db());
         sync_overdue_statuses();
     }
 
@@ -38,6 +40,9 @@ try {
         'categories/form' => [CategoryController::class, 'form'],
         'categories/save' => [CategoryController::class, 'save'],
         'categories/delete' => [CategoryController::class, 'delete'],
+        'accounting' => [AccountingController::class, 'index'],
+        'accounting/toggle-account' => [AccountingController::class, 'toggleAccount'],
+        'accounting/review-legacy' => [AccountingController::class, 'reviewLegacy'],
         'contacts' => [ContactController::class, 'index'],
         'contacts/export' => [ContactController::class, 'export'],
         'contacts/import' => [ContactController::class, is_post() ? 'import' : 'importForm'],

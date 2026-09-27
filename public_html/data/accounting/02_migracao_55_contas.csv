@@ -1,0 +1,56 @@
+﻿id_legado;codigo_legado;nome_legado;grupo_legado;indicador_legado;ativo_legado;status_migracao;importacao_automatica;codigo_novo_principal;contas_destino_candidatas;categoria_financeira;orientacao
+1;1.1;Venda de produtos;Receita com Vendas;Crédito;Sim;DIRETO;Sim;3.1.01.001;3.1.01.001;FIN_REC_OPER;"Receita de produtos; reconhecer na competência."
+2;1.2;Prestação de serviços;Receita com Vendas;Crédito;Sim;DIRETO;Sim;3.1.01.002;3.1.01.002;FIN_REC_OPER;"Receita de serviços; contratos antecipados exigem diferimento."
+3;2.1;DAS - Simples Nacional;Impostos Sobre Vendas;Débito;Sim;CONDICIONAL;Não;;3.1.02.001 | 2.1.03.001;FIN_TRIBUTO;"DAS somente no Simples; contabilizar apuração e pagamento em eventos diferentes; não duplicar tributos integrantes."
+4;2.2;PIS;Impostos Sobre Vendas;Débito;Sim;CONDICIONAL;Não;;3.1.02.002 | 2.1.03.002;FIN_TRIBUTO;PIS apenas se efetivamente apurado em separado.
+5;2.3;COFINS;Impostos Sobre Vendas;Débito;Sim;CONDICIONAL;Não;;3.1.02.003 | 2.1.03.003;FIN_TRIBUTO;Cofins apenas se efetivamente apurada em separado.
+6;2.4;ISS;Impostos Sobre Vendas;Débito;Sim;CONDICIONAL;Não;;3.1.02.004 | 2.1.03.004;FIN_TRIBUTO;ISS devido por fora, ou conforme apuração específica.
+7;2.5;IPI;Impostos Sobre Vendas;Débito;Sim;CONDICIONAL;Não;;3.1.02.006 | 2.1.03.006;FIN_TRIBUTO;Conferir tratamento do IPI na formação/apresentação da receita.
+8;2.6;ICMS;Impostos Sobre Vendas;Débito;Sim;CONDICIONAL;Não;;3.1.02.005 | 2.1.03.005;FIN_TRIBUTO;ICMS próprio, ST e créditos precisam de tratamentos separados.
+9;3.1;Devoluções de clientes;Outras Deduções;Débito;Sim;DIRETO;Sim;3.1.02.008;3.1.02.008;FIN_DEDUCOES;Vincular devolução ao documento e à receita original.
+10;3.2;Taxa de máquina de cartão;Outras Deduções;Débito;Sim;DIRETO;Sim;3.3.01.001;3.3.01.001;FIN_COMERCIAL;"Taxa de cartão como despesa comercial; conciliar bruto, taxa e líquido."
+11;3.3;Taxa de aplicativos;Outras Deduções;Débito;Sim;CONDICIONAL;Não;;3.3.01.002;FIN_COMERCIAL;Validar se empresa é principal/agente na plataforma.
+12;3.4;Comissões para vendedores;Outras Deduções;Débito;Sim;DIRETO;Sim;3.3.01.003;3.3.01.003;FIN_COMERCIAL;Comissão de vendas.
+13;4.1;Mercadoria para revenda;Custos Variáveis;Débito;Sim;EVENTO_DESDOBRADO;Não;;1.1.03.001 | 3.2.01.001;FIN_ESTOQUE;"Compra: estoque; baixa/CMV: resultado quando vendido."
+14;4.2;Matéria-prima;Custos Variáveis;Débito;Sim;EVENTO_DESDOBRADO;Não;;1.1.03.002 | 3.2.02.001;FIN_ESTOQUE;Matéria-prima: aquisição, consumo e CPV são eventos diferentes.
+15;4.3;Insumos;Custos Variáveis;Débito;Sim;CONDICIONAL;Não;;1.1.03.003 | 1.1.03.006 | 3.2.03.003 | 3.3.05.006;FIN_ESTOQUE;Determinar se é insumo produtivo, material de estoque ou consumo interno.
+16;4.4;Mão de obra variável;Custos Variáveis;Débito;Sim;CONDICIONAL;Não;;3.2.03.001 | 3.2.02.002;FIN_CUSTOS;Custo direto conforme atividade e função efetiva.
+17;5.1;Pró-Labore;Gastos com Pessoal;Débito;Sim;DIRETO;Sim;3.3.03.001;3.3.03.001;FIN_PESSOAL;"Pró-labore administrativo; separar obrigação e liquidação."
+18;5.2;Encargos sociais e trabalhistas;Gastos com Pessoal;Débito;Sim;CONDICIONAL;Não;;3.3.03.004 | 3.3.03.005 | 3.2.03.004;FIN_PESSOAL;"Segregar INSS, FGTS e pessoal direto; sem duplicar FGTS legado 5.7."
+19;5.3;Salário;Gastos com Pessoal;Débito;Sim;CONDICIONAL;Não;;3.3.03.002 | 3.3.01.005 | 3.2.03.002;FIN_PESSOAL;Destinação do empregado define custo, comercial ou administrativo.
+20;5.4;Transporte;Gastos com Pessoal;Débito;Sim;CONDICIONAL;Não;;3.3.03.006 | 3.2.03.005;FIN_PESSOAL;"Vale-transporte por função; frete não se confunde com benefício."
+21;5.5;Alimentação;Gastos com Pessoal;Débito;Sim;CONDICIONAL;Não;;3.3.03.007 | 3.2.03.005;FIN_PESSOAL;Alimentação por função.
+22;5.6;Saúde;Gastos com Pessoal;Débito;Sim;CONDICIONAL;Não;;3.3.03.008 | 3.2.03.005;FIN_PESSOAL;Saúde por função.
+23;6.1;Água;Gastos com Ocupação;Débito;Sim;CONDICIONAL;Não;;3.3.04.004 | 3.2.03.006;FIN_OCUPACAO;Água: operação ou administração.
+24;6.2;Aluguel, condomínio, IPTU;Gastos com Ocupação;Débito;Sim;EVENTO_DESDOBRADO;Não;;3.3.04.001 | 3.3.04.002 | 3.3.04.003 | 3.2.03.007;FIN_OCUPACAO;"Separar aluguel, condomínio e IPTU; ratear área operacional quando necessário."
+25;6.3;Telefone + internet;Gastos com Ocupação;Débito;Sim;EVENTO_DESDOBRADO;Não;;3.3.04.006 | 3.3.04.007;FIN_ADMIN;Separar telefone e internet.
+26;6.4;Limpeza e conservação;Gastos com Ocupação;Débito;Sim;CONDICIONAL;Não;;3.3.04.005 | 3.2.03.008;FIN_OCUPACAO;Limpeza operacional ou administrativa.
+27;6.5;Energia elétrica;Gastos com Ocupação;Débito;Sim;CONDICIONAL;Não;;3.3.04.008 | 3.2.03.009;FIN_OCUPACAO;Energia operacional ou administrativa.
+28;7.1;Contabilidade;Gastos com Serviços de Terceiros;Débito;Sim;DIRETO;Sim;3.3.02.001;3.3.02.001;FIN_ADMIN;Serviço contábil administrativo.
+29;7.2;Serviços jurídicos;Gastos com Serviços de Terceiros;Débito;Sim;DIRETO;Sim;3.3.02.002;3.3.02.002;FIN_ADMIN;Serviço jurídico administrativo, exceto natureza especial.
+30;7.3;Consultoria;Gastos com Serviços de Terceiros;Débito;Sim;CONDICIONAL;Não;;3.3.02.003 | 3.2.03.010;FIN_ADMIN;Consultoria administrativa ou custo diretamente atribuível.
+31;8.1;Anúncios;Gastos com Marketing;Débito;Sim;DIRETO;Sim;3.3.01.004;3.3.01.004;FIN_COMERCIAL;Mídia paga.
+32;8.2;Propaganda;Gastos com Marketing;Débito;Sim;DIRETO;Sim;3.3.01.007;3.3.01.007;FIN_COMERCIAL;Publicidade e propaganda.
+33;8.3;Campanhas;Gastos com Marketing;Débito;Sim;DIRETO;Sim;3.3.01.006;3.3.01.006;FIN_COMERCIAL;Campanha de marketing.
+34;9.1;Juros de aplicação;Receitas não Operacionais;Crédito;Sim;DIRETO;Sim;3.4.01.001;3.4.01.001;FIN_FIN_RESULT;"Receita financeira; crédito de rendimento distinto de resgate de principal."
+35;9.2;Outras receitas não operacionais;Receitas não Operacionais;Crédito;Sim;CONDICIONAL;Não;;3.5.01.001 | 3.4.01.002 | 3.5.01.002;FIN_OUTROS;Reclassificar pela origem identificada da receita.
+36;10.1;Juros por atraso;Gastos não Operacionais;Débito;Sim;CONDICIONAL;Não;;3.4.02.001 | 3.4.01.002;FIN_FIN_RESULT;"Se juros pagos: despesa; se cobrados de cliente: receita."
+37;10.2;Tarifas bancárias;Gastos não Operacionais;Débito;Sim;DIRETO;Sim;3.4.02.002;3.4.02.002;FIN_FIN_RESULT;"Tarifa bancária; política consistente de apresentação."
+38;10.3;Outros gastos não operacionais;Gastos não Operacionais;Débito;Sim;CONDICIONAL;Não;;3.5.02.001 | 3.4.02.003;FIN_OUTROS;"Classificar natureza documentada; não manter rubrica genérica definitiva."
+39;11.1;IRPJ;Imposto de Renda e CSLL;Débito;Sim;CONDICIONAL;Não;;3.8.01.001 | 2.1.03.007;FIN_TRIBUTO;"IRPJ separado; não duplicar parcela do DAS."
+40;11.2;CSLL;Imposto de Renda e CSLL;Débito;Sim;CONDICIONAL;Não;;3.8.01.002 | 2.1.03.008;FIN_TRIBUTO;"CSLL separada; não duplicar parcela do DAS."
+41;12.1;Investimentos gerais;Investimentos;Débito;Sim;BLOQUEADO;Não;;1.2.02.001 | 1.2.03.001 | 1.1.01.003 | 1.2.04.001;FIN_CAPEX;Investimento geral é ambíguo: separar aplicação financeira, participações, imobilizado e intangível.
+42;13.1;Transferência entre contas próprias - efetuadas;Transferências e Ajustes de Saldo;Débito;Sim;EVENTO_SEM_CONTA_UNICA;Não;;1.1.01.002 > 1.1.01.002;FIN_TRANSFER;"Transferir com duas contas bancárias próprias distintas no auxiliar; não integra receita/despesa."
+43;13.2;Ajuste de saldo;Transferências e Ajustes de Saldo;Débito;Sim;BLOQUEADO;Não;;;FIN_AJUSTE;"Conciliar com documento e contrapartida; nunca ajustar saldo sem causa."
+44;14.1;Transferência entre contas próprias - recebidas;Transferências e Ajustes de Saldo;Crédito;Sim;EVENTO_SEM_CONTA_UNICA;Não;;1.1.01.002 > 1.1.01.002;FIN_TRANSFER;Mesmo ID da transferência de saída.
+45;14.2;Ajuste de saldo;Transferências e Ajustes de Saldo;Crédito;Sim;BLOQUEADO;Não;;;FIN_AJUSTE;"Conciliar com documento e contrapartida; nunca ajustar saldo sem causa."
+46;6.6;Manutenção & Reparos;Gastos com Ocupação;Débito;Sim;CONDICIONAL;Não;;3.3.04.009 | 1.2.03.003;FIN_OCUPACAO;"Manutenção rotineira é despesa; melhoria capitalizável exige critérios de ativo."
+47;1.3;DARF;Receita com Vendas;Crédito;Sim;BLOQUEADO;Não;;;FIN_AJUSTE;"DARF crédito não define receita; verificar restituição, compensação ou tributo recuperável."
+48;2.7;DARF;Impostos Sobre Vendas;Débito;Sim;BLOQUEADO;Não;;;FIN_TRIBUTO;"DARF é documento de pagamento; identificar tributo e obrigação correspondente."
+49;5.7;FGTS;Gastos com Pessoal;Débito;Sim;CONDICIONAL;Não;;3.3.03.005 | 3.2.03.004 | 2.1.02.005;FIN_PESSOAL;"FGTS de competência e pagamento; impedir duplicação com antigo 5.2."
+50;7.4;Ferramentas;Gastos com Serviços de Terceiros;Débito;Sim;CONDICIONAL;Não;;3.3.02.004 | 3.3.05.003 | 1.2.03.004 | 1.2.04.001;FIN_ADMIN;Software recorrente, ferramenta de consumo, equipamento ou intangível.
+51;4.5;Casa;Custos Variáveis;Débito;Sim;BLOQUEADO;Não;;;FIN_AJUSTE;"Casa é categoria ambígua. Investigar documentos; possibilidade de despesa pessoal do sócio."
+52;6.7;Impostos & Taxas;Gastos com Ocupação;Débito;Sim;BLOQUEADO;Não;;3.3.04.003 | 3.3.05.005 | 3.1.02.001 | 2.1.03.010;FIN_TRIBUTO;"Identificar natureza e tributo; não permitir classificação automática genérica."
+53;10.4;Acordos & Indenizações;Gastos não Operacionais;Débito;Não;INATIVO;Não;;3.5.02.002;FIN_OUTROS;"Manter inativa; se reativada, definir natureza do acordo e separar trabalhista."
+54;12.2;Estrutura / Instalações - Iluminação;Investimentos;Débito;Sim;CONDICIONAL;Não;;1.2.03.003 | 3.3.04.009;FIN_CAPEX;Melhoria elegível para capitalização ou manutenção corrente.
+55;5.8;Férias e Rescisões;Gastos com Pessoal;Débito;Sim;EVENTO_DESDOBRADO;Não;;3.3.03.009 | 3.3.03.010 | 2.1.02.002 | 2.1.02.004;FIN_PESSOAL;Segregar férias, terço, rescisões e respectivas obrigações.
