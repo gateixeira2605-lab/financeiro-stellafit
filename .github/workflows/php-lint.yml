@@ -8,6 +8,19 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: financial_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - name: Validate PHP syntax
@@ -16,3 +29,11 @@ jobs:
         run: node --check public_html/assets/js/app.js
       - name: Validate accounting master data
         run: php public_html/tests/accounting_master_test.php
+      - name: Validate accounting migration and entries
+        env:
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: 3306
+          TEST_DB_NAME: financial_test
+          TEST_DB_USER: root
+          TEST_DB_PASS: root
+        run: php public_html/tests/accounting_database_test.php
